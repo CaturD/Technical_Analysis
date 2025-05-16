@@ -1,0 +1,17 @@
+# Abaikan file Python compiled dan cache
+__pycache__/
+*.py[cod]
+
+# Log
+*.log
+
+# VSCode atau PyCharm files
+.vscode/
+.idea/
+
+# Environment
+.env
+*.env
+
+# File backup
+*.bak
