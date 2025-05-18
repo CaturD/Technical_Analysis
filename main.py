@@ -21,7 +21,11 @@ from modules.backtesting import (
     save_backtesting_to_db,
     plot_accuracy_history,
     apply_strategy,
-    evaluate_signal_pairs
+    evaluate_signal_pairs,
+    evaluate_individual_indicators
+)
+from modules.evaluation_log import (
+    evaluate_indicator_combinations
 )
 
 def display_accuracy_result(result, label="Akurasi Historis"):
@@ -87,13 +91,14 @@ with st.sidebar.expander("Setting Parameter Indikator"):
     }
 
 # Tab Navigasi
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "Analisis",
     "Analisis Tersimpan",
     "Backtesting Analisis",
     "Backtesting Profit",
-    "Rekapitulasi Sinyal",
-    "Data Realtime"
+    "Data Realtime",
+    "Evaluasi Indikator",
+    "Evaluasi Kombinasi Indikator"
 ])
 
 with tab1:
@@ -110,7 +115,7 @@ with tab1:
         plot_indicators(data_in_range, indicators)
         display_analysis_table_with_summary(data_in_range, indicators, signal_filter)
         save_analysis_to_json_db(ticker, data_in_range, indicators)
-        show_signal_recap(data_in_range, indicators)
+        # show_signal_recap(data_in_range, indicators)
 
 # Tab 2 - Load Analisis Tersimpan
 with tab2:
@@ -120,12 +125,13 @@ with tab2:
         selected_title = st.selectbox("Pilih Judul Analisis", saved_titles)
         df_loaded = load_analysis_by_title(ticker, selected_title)
         display_analysis_table_with_summary(df_loaded, indicators, signal_filter)
-        show_signal_recap(df_loaded, indicators)
+        # show_signal_recap(df_loaded, indicators)
     else:
         st.info("Belum ada hasil analisis yang tersimpan untuk ticker ini.")
 
 with tab3:
     from modules.evaluation_log import save_accuracy_evaluation_to_db
+    from modules.visuals import plot_signal_markers
     df_bt = fetch_backtesting_data(ticker, start_date, end_date)
     if not df_bt.empty:
         signal_series = apply_strategy(df_bt, strategy)
@@ -146,6 +152,8 @@ with tab3:
         else:
             st.dataframe(df_pairs, use_container_width=True)
         run_backtesting_analysis(df_bt, money, key_prefix=f"{ticker}_{interval}_tab3")
+    # Tambahkan filter sinyal
+    plot_signal_markers(df_bt)  # tanpa parameter tambahan
 
 with tab4:
     df_bt = fetch_backtesting_data(ticker, start_date, end_date)
@@ -169,14 +177,6 @@ with tab4:
         plot_accuracy_history(ticker)
 
 with tab5:
-    # st.subheader("Rekapitulasi Sinyal")
-    df_bt = fetch_backtesting_data(ticker, start_date, end_date)
-    if not df_bt.empty:
-        show_signal_recap(df_bt, indicators)
-    else:
-        st.warning("Tidak ada data tersedia untuk rekapitulasi sinyal.")
-
-with tab6:
     st.subheader("Data Realtime (Marketstack)")
     if ticker:
         realtime_ticker = ticker.replace(".JK", ".XIDX")
@@ -197,6 +197,46 @@ with tab6:
             st.warning("Tidak ada data realtime ditemukan untuk ticker ini.")
     else:
         st.warning("Pilih ticker terlebih dahulu.")
+
+with tab6:
+    st.subheader("Evaluasi Per Indikator")
+    df_eval = get_data_from_db(ticker, interval)
+    df_eval = df_eval.loc[start_date:end_date]
+    if not df_eval.empty:
+        df_result_eval = evaluate_individual_indicators(ticker, df_eval, params, interval, money)
+        st.dataframe(df_result_eval, use_container_width=True)
+    else:
+        st.warning("Data tidak tersedia untuk ticker dan interval yang dipilih.")
+
+with tab7:
+    st.subheader("Evaluasi Kombinasi Indikator")
+    df_eval = get_data_from_db(ticker, interval)
+    df_eval = df_eval.loc[start_date:end_date]
+    if not df_eval.empty:
+        df_combo_result = evaluate_indicator_combinations(ticker, df_eval, params, interval, money)
+        st.dataframe(df_combo_result, use_container_width=True)
+        # if not df_combo_result.empty:
+        #     fig = px.bar(df_combo_result, x='Kombinasi', y='Keuntungan (%)', title='Profit Kombinasi (%)')
+        #     st.plotly_chart(fig, use_container_width=True)
+
+
+# with tab5:
+#     # st.subheader("Rekapitulasi Sinyal")
+#     df_bt = fetch_backtesting_data(ticker, start_date, end_date)
+#     if not df_bt.empty:
+#         show_signal_recap(df_bt, indicators)
+#     else:
+#         st.warning("Tidak ada data tersedia untuk rekapitulasi sinyal.")
+
+# Grafik
+# import plotly.express as px
+
+# if not df_result_eval.empty:
+#     fig = px.bar(df_result_eval, x='Indikator', y='Akurasi', title='Akurasi per Indikator (%)')
+#     st.plotly_chart(fig, use_container_width=True)
+
+#     fig2 = px.bar(df_result_eval, x='Indikator', y='Keuntungan (%)', title='Profit per Indikator (%)')
+#     st.plotly_chart(fig2, use_container_width=True)
 
 
 # import streamlit as st

@@ -81,7 +81,7 @@ def run_backtesting_analysis(df, money, key_prefix="default"):
     )
 
 def run_backtesting_profit(df, money, signal_series, key_prefix="default"):
-    st.subheader("Simulasi Keuntungan Trading")
+    st.subheader("Simulasi Keuntungan Trading Per Indikator")
     cash = money
     stock = 0
     history = []
@@ -260,6 +260,40 @@ def evaluate_signal_pairs(df, signal_series):
     if not df_pairs.empty:
         df_pairs = df_pairs.sort_values(by='Profit', ascending=False).reset_index(drop=True)
     return df_pairs
+
+def evaluate_individual_indicators(ticker, df, params, interval, money=1_000_000):
+    from modules.analysis import compute_final_signal
+    from modules.indicators import compute_indicators
+    from modules.backtesting import apply_strategy, run_backtesting_profit
+
+    results = []
+    indikator_list = ['MA', 'MACD', 'Ichimoku', 'SO', 'Volume']
+
+    for ind in indikator_list:
+        single_indicator = {key: (key == ind) for key in indikator_list}
+        df_ind = compute_indicators(df.copy(), single_indicator, params)
+        df_ind['Final_Signal'] = compute_final_signal(df_ind, single_indicator)
+        signal_series = apply_strategy(df_ind, "Final Signal")
+
+        # Run backtesting profit simulation
+        try:
+            _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(df_ind, money, signal_series, key_prefix=f"{ticker}_{ind}_auto_eval")
+            results.append({
+                'Indikator': ind,
+                'Akurasi': round(accuracy * 100, 2),
+                'Keuntungan (Rp)': round(gain, 2),
+                'Keuntungan (%)': round(gain_pct, 2)
+            })
+        except Exception as e:
+            results.append({
+                'Indikator': ind,
+                'Akurasi': None,
+                'Keuntungan (Rp)': None,
+                'Keuntungan (%)': None,
+                'Error': str(e)
+            })
+
+    return pd.DataFrame(results).sort_values(by='Keuntungan (%)', ascending=False).reset_index(drop=True)
 
 
 # def run_backtesting_analysis(df, money):

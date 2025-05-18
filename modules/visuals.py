@@ -2,6 +2,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
 import streamlit as st
+import plotly.graph_objects as go
 
 def plot_indicators(data, indicators):
     rows = 1 + indicators['MACD'] + indicators['SO'] + indicators['Volume']
@@ -63,6 +64,54 @@ def plot_indicators(data, indicators):
         hovermode='x unified',
         margin=dict(l=20, r=20, t=40, b=40),
         legend=dict(orientation='v', yanchor='top', y=1, xanchor='left', x=1.02)
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+def plot_signal_markers(df, signal_column='Final_Signal'):
+    st.subheader("Grafik Sinyal")
+
+    signal_styles = {
+        'Buy': {'color': 'green', 'symbol': 'triangle-up'},
+        'Sell': {'color': 'red', 'symbol': 'triangle-down'},
+        'Hold': {'color': 'blue', 'symbol': 'circle'}
+    }
+
+    fig = go.Figure()
+
+    # Tambahkan garis harga sebagai referensi
+    fig.add_trace(go.Scatter(
+        x=df.index,
+        y=df['Close'],
+        mode='lines',
+        name='Harga Close',
+        line=dict(color='lightgray', width=1),
+        showlegend=True
+    ))
+
+    for signal, style in signal_styles.items():
+        df_signal = df[df[signal_column] == signal]
+        if not df_signal.empty:
+            fig.add_trace(go.Scatter(
+                x=df_signal.index,
+                y=df_signal['Close'],
+                mode='markers',
+                marker=dict(
+                    color=style['color'],
+                    size=10,
+                    symbol=style['symbol']
+                ),
+                name=f"Sinyal {signal}"
+            ))
+
+    fig.update_layout(
+        height=500,
+        # title="Visualisasi Sinyal Analisis",
+        xaxis_title='Tanggal',
+        yaxis_title='Harga Close',
+        hovermode='x unified',
+        margin=dict(l=20, r=20, t=40, b=40),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='center', x=0.5)
     )
 
     st.plotly_chart(fig, use_container_width=True)
