@@ -91,14 +91,15 @@ with st.sidebar.expander("Setting Parameter Indikator"):
     }
 
 # Tab Navigasi
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "Analisis",
     "Analisis Tersimpan",
     "Backtesting Analisis",
     "Backtesting Profit",
     "Data Realtime",
     "Evaluasi Indikator",
-    "Evaluasi Kombinasi Indikator"
+    "Evaluasi Kombinasi Indikator",
+    "Semua Akurasi Strategi"
 ])
 
 with tab1:
@@ -218,6 +219,19 @@ with tab7:
         # if not df_combo_result.empty:
         #     fig = px.bar(df_combo_result, x='Kombinasi', y='Keuntungan (%)', title='Profit Kombinasi (%)')
         #     st.plotly_chart(fig, use_container_width=True)
+
+with tab8:
+    st.subheader("Semua Riwayat Akurasi Strategi")
+    from modules.evaluation_log import get_all_accuracy_logs
+
+    all_logs_df = get_all_accuracy_logs()
+    if not all_logs_df.empty:
+        st.dataframe(all_logs_df, use_container_width=True)
+
+        best_row = all_logs_df.iloc[0]
+        st.success(f"Akurasi Tertinggi: {best_row['accuracy']*100:.2f}% | Ticker: {best_row['ticker']} | Strategi: {best_row['strategy']}")
+    else:
+        st.info("Belum ada data akurasi yang tersedia.")
 
 
 # with tab5:

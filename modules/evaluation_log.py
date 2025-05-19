@@ -1,6 +1,7 @@
 import mysql.connector
 import json
 import pandas as pd
+import streamlit as st
 
 def save_accuracy_evaluation_to_db(
     ticker,
@@ -15,6 +16,7 @@ def save_accuracy_evaluation_to_db(
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
 
+        # Buat tabel jika belum ada
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS strategy_accuracy_log (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -28,27 +30,29 @@ def save_accuracy_evaluation_to_db(
             )
         """)
 
-        insert_query = """
-            INSERT INTO strategy_accuracy_log
-            (ticker, data_interval, strategy, indicators, parameters, accuracy)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """
-
         indicators_enabled = ', '.join([k for k, v in indicators_dict.items() if v])
         params_json = json.dumps(params_dict)
 
-        values = (
-            ticker,
-            interval,
-            strategy,
-            indicators_enabled,
-            params_json,
-            accuracy_value
-        )
+        # Cek apakah data sudah ada (berdasarkan kombinasi unik)
+        check_query = """
+            SELECT COUNT(*) FROM strategy_accuracy_log
+            WHERE ticker = %s AND data_interval = %s AND strategy = %s AND indicators = %s
+        """
+        cursor.execute(check_query, (ticker, interval, strategy, indicators_enabled))
+        count = cursor.fetchone()[0]
 
-        cursor.execute(insert_query, values)
-        conn.commit()
-        print(f"Akurasi strategi untuk {ticker} berhasil disimpan ke database.")
+        if count == 0:
+            insert_query = """
+                INSERT INTO strategy_accuracy_log
+                (ticker, data_interval, strategy, indicators, parameters, accuracy)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            values = (ticker, interval, strategy, indicators_enabled, params_json, accuracy_value)
+            cursor.execute(insert_query, values)
+            conn.commit()
+            print(f"Akurasi strategi untuk {ticker} berhasil disimpan ke database.")
+        else:
+            print(f"Data akurasi untuk {ticker} dan strategi yang sama sudah ada. Tidak disimpan ulang.")
 
     except Exception as e:
         print(f"Gagal menyimpan akurasi ke database: {e}")
@@ -99,3 +103,25 @@ def evaluate_indicator_combinations(ticker, df, params, interval, money=1_000_00
                 continue
 
     return pd.DataFrame(results).sort_values(by='Keuntungan (%)', ascending=False)
+
+def get_all_accuracy_logs():
+    try:
+        conn = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="",
+            database="indonesia_stock"
+        )
+        query = """
+            SELECT ticker, data_interval, strategy, indicators, accuracy, timestamp
+            FROM strategy_accuracy_log
+            ORDER BY accuracy DESC
+        """
+        df = pd.read_sql(query, conn)
+        return df
+    except Exception as e:
+        st.error(f"Gagal mengambil data akurasi: {e}")
+        return pd.DataFrame()
+    finally:
+        if conn.is_connected():
+            conn.close()

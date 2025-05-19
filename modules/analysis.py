@@ -254,9 +254,9 @@ def evaluate_strategy_accuracy(df):
 #         cleaned_data = json.dumps([{str(k): v for k, v in entry.items()} for entry in data_json], default=str)
 #         cursor.execute(insert_query, (ticker, cleaned_data))
 #         conn.commit()
-#         print(f"✅ Data Marketstack {ticker} berhasil disimpan.")
+#         print(f"Data Marketstack {ticker} berhasil disimpan.")
 #     except Exception as e:
-#         print(f"❌ Gagal menyimpan {ticker}: {e}")
+#         print(f"Gagal menyimpan {ticker}: {e}")
 #     finally:
 #         if conn.is_connected():
 #             cursor.close()
@@ -295,14 +295,14 @@ def evaluate_strategy_accuracy(df):
 #         return formatted_data
 
 #     except Exception as e:
-#         print(f"❌ Gagal mengambil data {ticker}: {e}")
+#         print(f"Gagal mengambil data {ticker}: {e}")
 #         return None
 
 # # Fungsi ambil satu ticker realtime (untuk dashboard)
 # def get_realtime_data_from_db(ticker):
 #     try:
 #         if not ticker:
-#             print("⚠️ Ticker bernilai None")
+#             print("Ticker bernilai None")
 #             return pd.DataFrame()
 
 #         conn = mysql.connector.connect(
@@ -330,14 +330,14 @@ def evaluate_strategy_accuracy(df):
 #                     print(f"[DEBUG] Dataframe loaded with shape: {df.shape}")
 #                 return df
 #             except Exception as decode_error:
-#                 print(f"❌ Gagal parsing JSON untuk {ticker}: {decode_error}")
+#                 print(f"Gagal parsing JSON untuk {ticker}: {decode_error}")
 #                 return pd.DataFrame()
 #         else:
-#             print(f"⚠️ Tidak ada data ditemukan untuk ticker: {ticker}")
+#             print(f"Tidak ada data ditemukan untuk ticker: {ticker}")
 #             return pd.DataFrame()
 
 #     except Exception as e:
-#         print(f"❌ Gagal membaca data realtime dari database: {e}")
+#         print(f"Gagal membaca data realtime dari database: {e}")
 #         return pd.DataFrame()
 
 #     finally:
@@ -348,7 +348,7 @@ def evaluate_strategy_accuracy(df):
 # # Eksekusi utama Marketstack real-time
 # if __name__ == "__main__":
 #     for ticker in realtime_tickers:
-#         print(f"🔄 Mengambil data {ticker} dari Marketstack...")
+#         print(f"Mengambil data {ticker} dari Marketstack...")
 #         data = fetch_marketstack_realtime(ticker)
 #         if data:
 #             save_marketstack_data(ticker, data)
