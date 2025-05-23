@@ -91,6 +91,16 @@ def save_analysis_to_json_db(ticker, data, indicators):
         indikator_terpilih = ', '.join([key for key, val in indicators.items() if val])
         title = f"Analisis {ticker} {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
+        # Cek apakah kombinasi ini sudah ada
+        check_query = """
+        SELECT COUNT(*) FROM analisis_indikator
+        WHERE ticker = %s AND hasil_analisis = %s AND indikator = %s
+        """
+        cursor.execute(check_query, (ticker, json_data, indikator_terpilih))
+        if cursor.fetchone()[0] > 0:
+            st.warning("Hasil analisis sudah ada dan tidak disimpan ulang.")
+            return
+
         insert_query = """
         INSERT INTO analisis_indikator (ticker, title, datetime, hasil_analisis, indikator)
         VALUES (%s, %s, %s, %s, %s)

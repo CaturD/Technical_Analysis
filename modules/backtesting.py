@@ -166,6 +166,14 @@ def save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, accuracy)
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        check_query = """
+        SELECT COUNT(*) FROM data_backtesting
+        WHERE ticker = %s AND money = %s AND final_money = %s AND profit_percentage = %s
+        """
+        cursor.execute(check_query, (ticker, money, final_value, gain_pct))
+        if cursor.fetchone()[0] > 0:
+            st.warning("Hasil backtesting ini sudah pernah disimpan.")
+            return
 
         query = """
             INSERT INTO data_backtesting (ticker, money, final_money, profit, profit_percentage, accuracy)

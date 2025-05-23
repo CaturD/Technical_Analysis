@@ -33,12 +33,50 @@ def save_accuracy_evaluation_to_db(
         indicators_enabled = ', '.join([k for k, v in indicators_dict.items() if v])
         params_json = json.dumps(params_dict)
 
-        # Cek apakah data sudah ada (berdasarkan kombinasi unik)
+    #     # Cek apakah data sudah ada (berdasarkan kombinasi unik)
+    #     check_query = """
+    #         SELECT COUNT(*) FROM strategy_accuracy_log
+    #         WHERE ticker = %s AND data_interval = %s AND strategy = %s AND indicators = %s
+    #     """
+    #     cursor.execute(check_query, (ticker, interval, strategy, indicators_enabled))
+    #     count = cursor.fetchone()[0]
+
+    #     # check_query = """
+    #     # SELECT COUNT(*) FROM strategy_accuracy_log
+    #     # WHERE ticker = %s AND data_interval = %s AND strategy = %s AND indicators = %s AND parameters = %s
+    #     # """
+    #     # cursor.execute(check_query, (ticker, interval, strategy, indicators_enabled, params_json))
+    #     # if cursor.fetchone()[0] > 0:
+    #     #     print("Data strategi ini sudah ada.")
+    #     #     return
+
+    #     if count == 0:
+    #         insert_query = """
+    #             INSERT INTO strategy_accuracy_log
+    #             (ticker, data_interval, strategy, indicators, parameters, accuracy)
+    #             VALUES (%s, %s, %s, %s, %s, %s)
+    #         """
+    #         values = (ticker, interval, strategy, indicators_enabled, params_json, accuracy_value)
+    #         cursor.execute(insert_query, values)
+    #         conn.commit()
+    #         print(f"Akurasi strategi untuk {ticker} berhasil disimpan ke database.")
+    #     else:
+    #         print(f"Data akurasi untuk {ticker} dan strategi yang sama sudah ada. Tidak disimpan ulang.")
+
+    # except Exception as e:
+    #     print(f"Gagal menyimpan akurasi ke database: {e}")
+
+    # finally:
+    #     if conn.is_connected():
+    #         cursor.close()
+    #         conn.close()
+
+    # Cek apakah data sudah ada (berdasarkan kombinasi unik)
         check_query = """
             SELECT COUNT(*) FROM strategy_accuracy_log
-            WHERE ticker = %s AND data_interval = %s AND strategy = %s AND indicators = %s
+            WHERE ticker = %s AND data_interval = %s AND strategy = %s AND indicators = %s AND parameters = %s
         """
-        cursor.execute(check_query, (ticker, interval, strategy, indicators_enabled))
+        cursor.execute(check_query, (ticker, interval, strategy, indicators_enabled, params_json))
         count = cursor.fetchone()[0]
 
         if count == 0:
