@@ -7,8 +7,10 @@ from datetime import datetime, timedelta
 
 # Daftar ticker saham
 tickers = [
-    "BBCA.JK", "BBRI.JK", "BYAN.JK", "BMRI.JK", "TLKM.JK", "ASII.JK", "TPIA.JK", "BBNI.JK", "UNVR.JK", "HMSP.JK", 
-    "GOTO.JK", "AMRT.JK", "ICBP.JK", "UNTR.JK", "MDKA.JK", "KLBF.JK", "ADRO.JK", "DCII.JK", "CPIN.JK", "SMMA.JK"
+    "ACES.JK","ADMR.JK","ADRO.JK","AKRA.JK","AMMN.JK","AMRT.JK","ANTM.JK","ARTO.JK","ASII.JK","BBCA.JK","BBNI.JK","BBRI.JK",
+    "BBTN.JK","BMRI.JK","BRIS.JK","BRPT.JK","CPIN.JK","CTRA.JK","ESSA.JK","EXCL.JK","GOTO.JK","ICBP.JK","INCO.JK","INDF.JK",
+    "INKP.JK","ISAT.JK","ITMG.JK","JPFA.JK","JSMR.JK","KLBF.JK","MAPA.JK","MAPI.JK","MBMA.JK","MDKA.JK","MEDC.JK","PGAS.JK",
+    "PGEO.JK","PTBA.JK","SIDO.JK","SMGR.JK","SMRA.JK","TLKM.JK","TOWR.JK","UNTR.JK","UNVR.JK",
 ]
 
 def save_stock_data_to_db(ticker, data_json_list):

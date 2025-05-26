@@ -15,11 +15,14 @@ def plot_indicators(data, indicators):
         row_heights=row_heights
     )
 
-    # Grafik harga
-    fig.add_trace(go.Scatter(
-        x=data.index, y=data['Close'],
-        mode='lines', name='Close Price',
-        line=dict(color='black')
+    # Grafik harga candlestick
+    fig.add_trace(go.Candlestick(
+        x=data.index,
+        open=data['Open'],
+        high=data['High'],
+        low=data['Low'],
+        close=data['Close'],
+        name='Candlestick'
     ), row=1, col=1)
 
     if indicators['MA']:

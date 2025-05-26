@@ -35,27 +35,148 @@ def fetch_backtesting_data(ticker, start_date, end_date):
         logging.error(f"Gagal mengambil data backtesting: {e}")
         return pd.DataFrame()
 
-def apply_strategy(df, strategy):
+# def apply_strategy(df, strategy):
+#     if strategy == "Final Signal":
+#         return df['Final_Signal']
+#     elif strategy == "Buy & Hold":
+#         signals = ['Hold'] * len(df)
+#         signals[0] = 'Buy'
+#         signals[-1] = 'Sell'
+#         return pd.Series(signals, index=df.index)
+#     elif strategy == "MACD Only" and 'Signal_MACD' in df.columns:
+#         return df['Signal_MACD']
+#     elif strategy == "MA Crossover" and 'Signal_MA' in df.columns:
+#         return df['Signal_MA']
+#     elif strategy == "Volume Entry" and 'Signal_Volume' in df.columns:
+#         # Treat High Volume as Buy, Low Volume as Sell
+#         return df['Signal_Volume'].replace({
+#             'High Volume': 'Buy',
+#             'Low Volume': 'Sell',
+#             'Hold': 'Hold'
+#         })
+#     else:
+#         return pd.Series(['Hold'] * len(df), index=df.index)
+
+# custom_strategies.py
+
+def apply_custom_strategy(df, strategy):
+    import pandas as pd
+
     if strategy == "Final Signal":
         return df['Final_Signal']
+
     elif strategy == "Buy & Hold":
         signals = ['Hold'] * len(df)
-        signals[0] = 'Buy'
-        signals[-1] = 'Sell'
+        if len(df) > 1:
+            signals[0] = 'Buy'
+            signals[-1] = 'Sell'
         return pd.Series(signals, index=df.index)
-    elif strategy == "MACD Only" and 'Signal_MACD' in df.columns:
-        return df['Signal_MACD']
-    elif strategy == "MA Crossover" and 'Signal_MA' in df.columns:
-        return df['Signal_MA']
-    elif strategy == "Volume Entry" and 'Signal_Volume' in df.columns:
-        # Treat High Volume as Buy, Low Volume as Sell
-        return df['Signal_Volume'].replace({
+
+    # === STRATEGI BERDASARKAN MASING-MASING INDIKATOR ===
+    elif strategy == "MA Only":
+        return df.get('Signal_MA', pd.Series(['Hold'] * len(df), index=df.index))
+
+    elif strategy == "MACD Only":
+        return df.get('Signal_MACD', pd.Series(['Hold'] * len(df), index=df.index))
+
+    elif strategy == "Ichimoku Only":
+        return df.get('Signal_Ichimoku', pd.Series(['Hold'] * len(df), index=df.index))
+
+    elif strategy == "SO Only":
+        return df.get('Signal_SO', pd.Series(['Hold'] * len(df), index=df.index))
+
+    elif strategy == "Volume Only":
+        vol_sig = df.get('Signal_Volume', pd.Series(['Hold'] * len(df), index=df.index))
+        return vol_sig.replace({
             'High Volume': 'Buy',
-            'Low Volume': 'Sell',
-            'Hold': 'Hold'
+            'Low Volume': 'Sell'
         })
+
+    # === STRATEGI KOMBINASI LOGIKA ===
+    elif strategy == "Ichimoku + MA Only":
+        result = []
+        for i in range(len(df)):
+            ich = df.iloc[i].get('Signal_Ichimoku')
+            ma = df.iloc[i].get('Signal_MA')
+            result.append(ich if ich == ma and ich in ['Buy', 'Sell'] else 'Hold')
+        return pd.Series(result, index=df.index)
+
+    elif strategy == "All Agree":
+        result = []
+        for i in range(len(df)):
+            signals = [
+                df.iloc[i].get('Signal_MA'),
+                df.iloc[i].get('Signal_MACD'),
+                df.iloc[i].get('Signal_Ichimoku'),
+                df.iloc[i].get('Signal_SO'),
+                df.iloc[i].get('Signal_Volume')
+            ]
+            if all(s == 'Buy' for s in signals):
+                result.append('Buy')
+            elif all(s == 'Sell' for s in signals):
+                result.append('Sell')
+            else:
+                result.append('Hold')
+        return pd.Series(result, index=df.index)
+
+    elif strategy == "3 of 5 Majority":
+        result = []
+        for i in range(len(df)):
+            signals = [
+                df.iloc[i].get('Signal_MA'),
+                df.iloc[i].get('Signal_MACD'),
+                df.iloc[i].get('Signal_Ichimoku'),
+                df.iloc[i].get('Signal_SO'),
+                df.iloc[i].get('Signal_Volume')
+            ]
+            buy_count = signals.count('Buy')
+            sell_count = signals.count('Sell')
+            result.append('Buy' if buy_count >= 3 else 'Sell' if sell_count >= 3 else 'Hold')
+        return pd.Series(result, index=df.index)
+
+    elif strategy == "MACD + Volume Confirm":
+        result = []
+        for i in range(len(df)):
+            macd = df.iloc[i].get('Signal_MACD')
+            vol = df.iloc[i].get('Signal_Volume')
+            if macd == 'Buy' and vol == 'High Volume':
+                result.append('Buy')
+            elif macd == 'Sell' and vol == 'Low Volume':
+                result.append('Sell')
+            else:
+                result.append('Hold')
+        return pd.Series(result, index=df.index)
+
+    elif strategy == "Ichimoku + MA Trend":
+        result = []
+        for i in range(len(df)):
+            ich = df.iloc[i].get('Signal_Ichimoku')
+            ma20 = df.iloc[i].get('MA20')
+            ma50 = df.iloc[i].get('MA50')
+            if ich == 'Buy' and ma20 > ma50:
+                result.append('Buy')
+            elif ich == 'Sell' and ma20 < ma50:
+                result.append('Sell')
+            else:
+                result.append('Hold')
+        return pd.Series(result, index=df.index)
+
+    elif strategy == "SO + MACD":
+        result = []
+        for i in range(len(df)):
+            so = df.iloc[i].get('Signal_SO')
+            macd = df.iloc[i].get('Signal_MACD')
+            if so == 'Buy' and macd == 'Buy':
+                result.append('Buy')
+            elif so == 'Sell' and macd == 'Sell':
+                result.append('Sell')
+            else:
+                result.append('Hold')
+        return pd.Series(result, index=df.index)
+
     else:
         return pd.Series(['Hold'] * len(df), index=df.index)
+
 
 def run_backtesting_analysis(df, money, key_prefix="default"):
     st.subheader("Backtesting Analisis")
@@ -272,7 +393,7 @@ def evaluate_signal_pairs(df, signal_series):
 def evaluate_individual_indicators(ticker, df, params, interval, money=1_000_000):
     from modules.analysis import compute_final_signal
     from modules.indicators import compute_indicators
-    from modules.backtesting import apply_strategy, run_backtesting_profit
+    from modules.backtesting import apply_custom_strategy, run_backtesting_profit
 
     results = []
     indikator_list = ['MA', 'MACD', 'Ichimoku', 'SO', 'Volume']
@@ -281,7 +402,7 @@ def evaluate_individual_indicators(ticker, df, params, interval, money=1_000_000
         single_indicator = {key: (key == ind) for key in indikator_list}
         df_ind = compute_indicators(df.copy(), single_indicator, params)
         df_ind['Final_Signal'] = compute_final_signal(df_ind, single_indicator)
-        signal_series = apply_strategy(df_ind, "Final Signal")
+        signal_series = apply_custom_strategy(df_ind, "Final Signal")
 
         # Run backtesting profit simulation
         try:
