@@ -2,235 +2,155 @@ import pandas as pd
 import streamlit as st
 import mysql.connector
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from sklearn.metrics import accuracy_score
-import yfinance as yf
-import time
-import requests
 
+# Hitung sinyal akhir berdasarkan mayoritas indikator
 def compute_final_signal(data, indicators):
     def majority_vote(row):
         signals = []
-        if indicators.get('MA'):
-            signals.append(row.get('Signal_MA', 'Hold'))
-        if indicators.get('MACD'):
-            signals.append(row.get('Signal_MACD', 'Hold'))
-        if indicators.get('Ichimoku'):
-            signals.append(row.get('Signal_Ichimoku', 'Hold'))
-        if indicators.get('SO'):
-            signals.append(row.get('Signal_SO', 'Hold'))
+        if indicators.get('MA'): signals.append(row.get('Signal_MA', 'Hold'))
+        if indicators.get('MACD'): signals.append(row.get('Signal_MACD', 'Hold'))
+        if indicators.get('Ichimoku'): signals.append(row.get('Signal_Ichimoku', 'Hold'))
+        if indicators.get('SO'): signals.append(row.get('Signal_SO', 'Hold'))
         if indicators.get('Volume'):
             vol_signal = row.get('Signal_Volume', 'Hold')
-            if vol_signal == 'High Volume':
-                signals.append('Buy')
-            elif vol_signal == 'Low Volume':
-                signals.append('Sell')
-            else:
-                signals.append('Hold')
-
-        buy = signals.count('Buy')
-        sell = signals.count('Sell')
-        if buy > sell:
-            return 'Buy'
-        elif sell > buy:
-            return 'Sell'
-        return 'Hold'
-
+            signals.append('Buy' if vol_signal == 'High Volume' else 'Sell' if vol_signal == 'Low Volume' else 'Hold')
+        buy, sell = signals.count('Buy'), signals.count('Sell')
+        return 'Buy' if buy > sell else 'Sell' if sell > buy else 'Hold'
     return data.apply(majority_vote, axis=1)
 
-def display_analysis_table_with_summary(data, indicators, signal_filter=['Buy', 'Sell', 'Hold']):
-    columns_to_display = []
+# Tampilkan tabel analisis dengan filter sinyal dan penomoran
+def display_analysis_table_with_summary(df, indicators, signal_filter):
+    cols = []
     if indicators.get('MA'):
-        columns_to_display += ['MA20', 'MA50', 'Signal_MA']
+        cols += ['MA20', 'MA50', 'Signal_MA']
     if indicators.get('MACD'):
-        columns_to_display += ['MACD', 'MACD_signal', 'MACD_hist', 'Signal_MACD']
+        cols += ['MACD', 'MACD_signal', 'MACD_hist', 'Signal_MACD']
     if indicators.get('Ichimoku'):
-        columns_to_display += ['Tenkan_sen', 'Kijun_sen', 'Senkou_span_A', 'Senkou_span_B', 'Chikou_span', 'Signal_Ichimoku']
+        cols += ['Tenkan_sen', 'Kijun_sen', 'Senkou_span_A', 'Senkou_span_B', 'Chikou_span', 'Signal_Ichimoku']
     if indicators.get('SO'):
-        columns_to_display += ['SlowK', 'SlowD', 'Signal_SO']
+        cols += ['SlowK', 'SlowD', 'Signal_SO']
     if indicators.get('Volume'):
-        columns_to_display += ['Volume', 'Volume_MA20', 'Signal_Volume']
+        cols += ['Volume', 'Volume_MA20', 'Signal_Volume']
+    
+    # Pastikan hanya kolom yang tersedia di df yang dipilih
+    existing_cols = [col for col in cols if col in df.columns]
+    
+    # Tambahkan kolom sinyal akhir
+    if 'Final_Signal' in df.columns:
+        existing_cols.append('Final_Signal')
 
-    display_cols = list(dict.fromkeys(columns_to_display + ['Final_Signal', 'Close']))
+    # Filter jika pengguna memilih filter sinyal tertentu
+    if signal_filter:
+        df_filtered = df[df['Final_Signal'].isin(signal_filter)]
+    else:
+        df_filtered = df
 
-    data_copy = data.copy().reset_index()
-    data_copy.insert(0, 'No', data_copy.index + 1)
-
-    # Filter sinyal jika diberikan
-    data_filtered = data_copy[data_copy['Final_Signal'].isin(signal_filter)]
-
-    st.subheader('Tabel Hasil Analisis')
-    st.dataframe(data_filtered[display_cols], use_container_width=True)
+    st.dataframe(df_filtered[existing_cols], use_container_width=True)
 
 
+# Simpan hasil analisis ke database (jika belum ada)
 def save_analysis_to_json_db(ticker, data, indicators):
     try:
-        conn = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="",
-            database="indonesia_stock"
-        )
+        conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
         cursor = conn.cursor()
-
-        cursor.execute("SHOW COLUMNS FROM analisis_indikator LIKE 'title'")
-        title_exists = cursor.fetchone()
-
-        if not title_exists:
-            alter_query = """
+        cursor.execute("""
             ALTER TABLE analisis_indikator
-            ADD COLUMN title VARCHAR(255),
-            ADD COLUMN datetime DATETIME,
-            ADD COLUMN indikator TEXT
-            """
-            cursor.execute(alter_query)
-
+            ADD COLUMN IF NOT EXISTS title VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS datetime DATETIME,
+            ADD COLUMN IF NOT EXISTS indikator TEXT
+        """)
         data = data.reset_index()
         data['Date'] = data['Date'].dt.strftime('%Y-%m-%d')
         json_data = data.to_json(orient='records')
-        indikator_terpilih = ', '.join([key for key, val in indicators.items() if val])
+        indikator_aktif = ', '.join([k for k, v in indicators.items() if v])
         title = f"Analisis {ticker} {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-
-        # Cek apakah kombinasi ini sudah ada
-        check_query = """
-        SELECT COUNT(*) FROM analisis_indikator
-        WHERE ticker = %s AND hasil_analisis = %s AND indikator = %s
-        """
-        cursor.execute(check_query, (ticker, json_data, indikator_terpilih))
+        cursor.execute("""
+            SELECT COUNT(*) FROM analisis_indikator
+            WHERE ticker = %s AND hasil_analisis = %s AND indikator = %s
+        """, (ticker, json_data, indikator_aktif))
         if cursor.fetchone()[0] > 0:
             st.warning("Hasil analisis sudah ada dan tidak disimpan ulang.")
             return
-
-        insert_query = """
-        INSERT INTO analisis_indikator (ticker, title, datetime, hasil_analisis, indikator)
-        VALUES (%s, %s, %s, %s, %s)
-        """
-        values = (ticker, title, datetime.now(), json_data, indikator_terpilih)
-        cursor.execute(insert_query, values)
+        cursor.execute("""
+            INSERT INTO analisis_indikator (ticker, title, datetime, hasil_analisis, indikator)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (ticker, title, datetime.now(), json_data, indikator_aktif))
         conn.commit()
         st.success("Hasil analisis berhasil disimpan ke database.")
-
     except mysql.connector.Error as err:
         st.error(f"Gagal menyimpan hasil analisis: {err}")
     finally:
-        if conn.is_connected():
-            cursor.close()
-            conn.close()
+        if conn.is_connected(): cursor.close(); conn.close()
 
+# Ambil daftar judul analisis sebelumnya dari DB
 def fetch_saved_titles(ticker):
     try:
-        conn = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="",
-            database="indonesia_stock"
-        )
+        conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
         cursor = conn.cursor()
-        query = "SELECT title FROM analisis_indikator WHERE ticker = %s ORDER BY datetime DESC"
-        cursor.execute(query, (ticker,))
-        results = [row[0] for row in cursor.fetchall()]
-        return results
-    except mysql.connector.Error as err:
-        st.error(f"Gagal mengambil judul analisis: {err}")
-        return []
+        cursor.execute("SELECT title FROM analisis_indikator WHERE ticker = %s ORDER BY datetime DESC", (ticker,))
+        return [r[0] for r in cursor.fetchall()]
+    except: return []
     finally:
-        if conn.is_connected():
-            cursor.close()
-            conn.close()
+        if conn.is_connected(): cursor.close(); conn.close()
 
+# Load analisis dari DB berdasarkan title
 def load_analysis_by_title(ticker, title):
     try:
         conn = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="",
-            database="indonesia_stock"
+            host="localhost", user="root", password="", database="indonesia_stock"
         )
         cursor = conn.cursor()
-        query = "SELECT hasil_analisis FROM analisis_indikator WHERE ticker = %s AND title = %s"
-        cursor.execute(query, (ticker, title))
-        result = cursor.fetchone()
+        cursor.execute("SELECT hasil_analisis FROM analisis_indikator WHERE ticker = %s AND title = %s", (ticker, title))
+        result = cursor.fetchone()  # ← ini penting, harus dieksekusi sebelum close
         if result:
-            data_json = json.loads(result[0])
-            df = pd.DataFrame(data_json)
+            df = pd.DataFrame(json.loads(result[0]))
             df['Date'] = pd.to_datetime(df['Date'])
             df.set_index('Date', inplace=True)
             return df
-        else:
-            st.warning("Data tidak ditemukan.")
-            return pd.DataFrame()
-    except mysql.connector.Error as err:
-        st.error(f"Gagal memuat data analisis: {err}")
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Error saat memuat analisis: {e}")
         return pd.DataFrame()
     finally:
-        if conn.is_connected():
-            cursor.close()
-            conn.close()
+        try:
+            if cursor: cursor.close()
+            if conn: conn.close()
+        except: pass  # jika koneksi gagal dibuat
 
+
+# Tampilkan jumlah sinyal per indikator
 def show_signal_recap(data, indicators, title='Rekapitulasi Sinyal'):
     st.subheader(title)
     rows = []
+    for key, label in zip(['MA', 'MACD', 'Ichimoku', 'SO', 'Volume'], ['Moving Average', 'MACD', 'Ichimoku', 'Stochastic Oscillator', 'Volume']):
+        if indicators.get(key):
+            col = f"Signal_{key}" if key != 'Volume' else 'Signal_Volume'
+            values = data[col].value_counts()
+            for s in ['Buy', 'Sell', 'Hold']:
+                label_sinyal = s if key != 'Volume' else 'High Volume' if s == 'Buy' else 'Low Volume' if s == 'Sell' else 'Hold'
+                rows.append({'Indikator': label, 'Sinyal': label_sinyal, 'Jumlah': values.get(label_sinyal, 0)})
+    st.dataframe(pd.DataFrame(rows), use_container_width=True)
 
-    if indicators.get('MA'):
-        counts = data['Signal_MA'].value_counts()
-        for signal in ['Buy', 'Sell', 'Hold']:
-            rows.append({'Indikator': 'Moving Average', 'Sinyal': signal, 'Jumlah': counts.get(signal, 0)})
-
-    if indicators.get('MACD'):
-        counts = data['Signal_MACD'].value_counts()
-        for signal in ['Buy', 'Sell', 'Hold']:
-            rows.append({'Indikator': 'MACD', 'Sinyal': signal, 'Jumlah': counts.get(signal, 0)})
-
-    if indicators.get('Ichimoku'):
-        counts = data['Signal_Ichimoku'].value_counts()
-        for signal in ['Buy', 'Sell', 'Hold']:
-            rows.append({'Indikator': 'Ichimoku', 'Sinyal': signal, 'Jumlah': counts.get(signal, 0)})
-
-    if indicators.get('SO'):
-        counts = data['Signal_SO'].value_counts()
-        for signal in ['Buy', 'Sell', 'Hold']:
-            rows.append({'Indikator': 'Stochastic Oscillator', 'Sinyal': signal, 'Jumlah': counts.get(signal, 0)})
-
-    if indicators.get('Volume'):
-        counts = data['Signal_Volume'].value_counts()
-        for signal in ['High Volume', 'Low Volume', 'Hold']:
-            rows.append({'Indikator': 'Volume', 'Sinyal': signal, 'Jumlah': counts.get(signal, 0)})
-
-    df_recap = pd.DataFrame(rows)
-    st.dataframe(df_recap, use_container_width=True)
-
-# EVALUASI AKURASI
+# Evaluasi akurasi strategi berdasarkan arah harga
 def evaluate_strategy_accuracy(df):
-    """
-    Menghitung akurasi strategi berdasarkan sinyal dan pergerakan harga berikutnya.
-    Membandingkan kolom 'Final_Signal' vs 'Actual_Signal' berdasarkan Future_Close.
-    """
-    if 'Close' not in df.columns or 'Final_Signal' not in df.columns:
-        print("Data tidak memiliki kolom yang dibutuhkan.")
-        return None
-
+    if 'Close' not in df.columns or 'Final_Signal' not in df.columns: return None
     df = df.copy()
     df['Future_Close'] = df['Close'].shift(-1)
     df.dropna(subset=['Future_Close', 'Final_Signal'], inplace=True)
-
     df['Actual_Trend'] = df['Future_Close'] > df['Close']
     df['Actual_Signal'] = df['Actual_Trend'].map({True: 'Buy', False: 'Sell'})
-
-    # Hanya bandingkan baris dengan sinyal Buy atau Sell
     mask = df['Final_Signal'].isin(['Buy', 'Sell'])
     accuracy = accuracy_score(df.loc[mask, 'Final_Signal'], df.loc[mask, 'Actual_Signal'])
-
-    # Rekap jumlah sinyal
-    signal_count = df['Final_Signal'].value_counts().to_dict()
-    correct_predictions = (df['Final_Signal'] == df['Actual_Signal']).sum()
-
     result = {
         "accuracy": accuracy,
         "total_signals": len(df),
-        "correct_predictions": correct_predictions,
-        "signal_distribution": signal_count
+        "correct_predictions": (df['Final_Signal'] == df['Actual_Signal']).sum(),
+        "signal_distribution": df['Final_Signal'].value_counts().to_dict()
     }
     return result
+
 
 # #EVALUASI GABUNG
 # # API Key Marketstack

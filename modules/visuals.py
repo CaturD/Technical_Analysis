@@ -1,8 +1,7 @@
+import streamlit as st
+import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import pandas as pd
-import streamlit as st
-import plotly.graph_objects as go
 
 def plot_indicators(data, indicators):
     rows = 1 + indicators['MACD'] + indicators['SO'] + indicators['Volume']
@@ -15,23 +14,15 @@ def plot_indicators(data, indicators):
         row_heights=row_heights
     )
 
-    # Grafik harga candlestick
+    # Candlestick chart
     fig.add_trace(go.Candlestick(
         x=data.index,
-        open=data['Open'],
-        high=data['High'],
-        low=data['Low'],
-        close=data['Close'],
-        name='Candlestick'
-    ), row=1, col=1)
+        open=data['Open'], high=data['High'], low=data['Low'], close=data['Close'],
+        name='Candlestick'), row=1, col=1)
 
     if indicators['MA']:
-        fig.add_trace(go.Scatter(
-            x=data.index, y=data['MA20'], name='MA20', line=dict(color='blue', dash='dash')
-        ), row=1, col=1)
-        fig.add_trace(go.Scatter(
-            x=data.index, y=data['MA50'], name='MA50', line=dict(color='red', dash='dash')
-        ), row=1, col=1)
+        fig.add_trace(go.Scatter(x=data.index, y=data['MA20'], name='MA20', line=dict(color='blue', dash='dash')), row=1, col=1)
+        fig.add_trace(go.Scatter(x=data.index, y=data['MA50'], name='MA50', line=dict(color='red', dash='dash')), row=1, col=1)
 
     if indicators['Ichimoku']:
         fig.add_trace(go.Scatter(x=data.index, y=data['Tenkan_sen'], name='Tenkan Sen', line=dict(color='blue')), row=1, col=1)
@@ -43,8 +34,7 @@ def plot_indicators(data, indicators):
             y=pd.concat([data['Senkou_span_A'], data['Senkou_span_B'][::-1]]),
             fill='toself', fillcolor='rgba(160, 160, 160, 0.2)',
             line=dict(color='rgba(255,255,255,0)'),
-            hoverinfo="skip", showlegend=True, name='Kumo Cloud'
-        ), row=1, col=1)
+            hoverinfo="skip", showlegend=True, name='Kumo Cloud'), row=1, col=1)
 
     current_row = 2
     if indicators['MACD']:
@@ -81,16 +71,13 @@ def plot_signal_markers(df, signal_column='Final_Signal'):
     }
 
     fig = go.Figure()
-
-    # Tambahkan garis harga sebagai referensi
     fig.add_trace(go.Scatter(
         x=df.index,
         y=df['Close'],
         mode='lines',
         name='Harga Close',
         line=dict(color='lightgray', width=1),
-        showlegend=True
-    ))
+        showlegend=True))
 
     for signal, style in signal_styles.items():
         df_signal = df[df[signal_column] == signal]
@@ -99,19 +86,51 @@ def plot_signal_markers(df, signal_column='Final_Signal'):
                 x=df_signal.index,
                 y=df_signal['Close'],
                 mode='markers',
-                marker=dict(
-                    color=style['color'],
-                    size=10,
-                    symbol=style['symbol']
-                ),
-                name=f"Sinyal {signal}"
-            ))
+                marker=dict(color=style['color'], size=10, symbol=style['symbol']),
+                name=f"Sinyal {signal}"))
 
     fig.update_layout(
         height=500,
-        # title="Visualisasi Sinyal Analisis",
         xaxis_title='Tanggal',
         yaxis_title='Harga Close',
+        hovermode='x unified',
+        margin=dict(l=20, r=20, t=40, b=40),
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='center', x=0.5)
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+def plot_signal_pairs(df, signal_pairs):
+    st.subheader("Visualisasi Pasangan Sinyal Buy–Sell")
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=df.index,
+        y=df['Close'],
+        mode='lines',
+        name='Harga Close',
+        line=dict(color='lightgray')))
+
+    for i, row in signal_pairs.iterrows():
+        fig.add_trace(go.Scatter(
+            x=[row['Buy Date']], y=[row['Buy Price']], mode='markers',
+            marker=dict(symbol='triangle-up', color='green', size=10),
+            name=f"Buy {i+1}", showlegend=(i == 0)))
+
+        fig.add_trace(go.Scatter(
+            x=[row['Sell Date']], y=[row['Sell Price']], mode='markers',
+            marker=dict(symbol='triangle-down', color='red', size=10),
+            name=f"Sell {i+1}", showlegend=(i == 0)))
+
+        fig.add_trace(go.Scatter(
+            x=[row['Buy Date'], row['Sell Date']],
+            y=[row['Buy Price'], row['Sell Price']],
+            mode='lines', line=dict(dash='dot', color='blue'), showlegend=False))
+
+    fig.update_layout(
+        height=500,
+        xaxis_title='Tanggal',
+        yaxis_title='Harga',
         hovermode='x unified',
         margin=dict(l=20, r=20, t=40, b=40),
         legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='center', x=0.5)

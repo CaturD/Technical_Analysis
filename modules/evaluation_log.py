@@ -2,21 +2,20 @@ import mysql.connector
 import json
 import pandas as pd
 import streamlit as st
+from itertools import combinations
+from modules.indicators import compute_indicators
+from modules.analysis import compute_final_signal
+from modules.custom_strategies import apply_custom_strategy
+from modules.backtesting import run_backtesting_profit
 
-def save_accuracy_evaluation_to_db(
-    ticker,
-    interval,
-    strategy,
-    indicators_dict,
-    params_dict,
-    accuracy_value,
-    db_config={"host": "localhost", "user": "root", "password": "", "database": "indonesia_stock"}
-):
+
+def save_accuracy_evaluation_to_db(ticker, interval, strategy, indicators_dict, params_dict, accuracy_value, db_config=None):
+    if db_config is None:
+        db_config = {"host": "localhost", "user": "root", "password": "", "database": "indonesia_stock"}
+
     try:
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
-
-        # Buat tabel jika belum ada
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS strategy_accuracy_log (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -29,194 +28,135 @@ def save_accuracy_evaluation_to_db(
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
-
-        indicators_enabled = ', '.join([k for k, v in indicators_dict.items() if v])
+        indicators_used = ', '.join([k for k, v in indicators_dict.items() if v])
         params_json = json.dumps(params_dict)
 
-    # Cek apakah data sudah ada (berdasarkan kombinasi unik)
-        check_query = """
+        cursor.execute("""
             SELECT COUNT(*) FROM strategy_accuracy_log
             WHERE ticker = %s AND data_interval = %s AND strategy = %s AND indicators = %s AND parameters = %s
-        """
-        cursor.execute(check_query, (ticker, interval, strategy, indicators_enabled, params_json))
-        count = cursor.fetchone()[0]
+        """, (ticker, interval, strategy, indicators_used, params_json))
 
-        if count == 0:
-            insert_query = """
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("""
                 INSERT INTO strategy_accuracy_log
                 (ticker, data_interval, strategy, indicators, parameters, accuracy)
                 VALUES (%s, %s, %s, %s, %s, %s)
-            """
-            values = (ticker, interval, strategy, indicators_enabled, params_json, accuracy_value)
-            cursor.execute(insert_query, values)
+            """, (ticker, interval, strategy, indicators_used, params_json, accuracy_value))
             conn.commit()
-            print(f"Akurasi strategi untuk {ticker} berhasil disimpan ke database.")
+            print("Data akurasi disimpan.")
         else:
-            print(f"Data akurasi untuk {ticker} dan strategi yang sama sudah ada. Tidak disimpan ulang.")
-
+            print("Strategi yang sama sudah disimpan sebelumnya.")
     except Exception as e:
-        print(f"Gagal menyimpan akurasi ke database: {e}")
-
+        print(f"Gagal menyimpan ke database: {e}")
     finally:
-        if conn.is_connected():
-            cursor.close()
-            conn.close()
+        if conn.is_connected(): cursor.close(); conn.close()
 
 def evaluate_strategy(ticker, df, indicators_dict, params_dict, interval, money, strategy_name="Final Signal"):
-    from modules.indicators import compute_indicators
-    from modules.analysis import compute_final_signal
-    from modules.backtesting import apply_custom_strategy, run_backtesting_profit
-
     df_eval = compute_indicators(df.copy(), indicators_dict, params_dict)
     df_eval['Final_Signal'] = compute_final_signal(df_eval, indicators_dict)
     signal_series = apply_custom_strategy(df_eval, strategy_name)
+    return run_backtesting_profit(df_eval, money, signal_series, key_prefix=f"{ticker}_{strategy_name}", enable_download=False)
 
-    return run_backtesting_profit(df_eval, money, signal_series, key_prefix=f"{ticker}_{strategy_name}")
-
-from itertools import combinations
-
+# Evaluasi kombinasi indikator (2–5 indikator aktif)
 def evaluate_indicator_combinations(ticker, df, params, interval, money=1_000_000):
-    from modules.indicators import compute_indicators
-    from modules.analysis import compute_final_signal
-    from modules.backtesting import apply_custom_strategy, run_backtesting_profit
-
     indikator_list = ['MA', 'MACD', 'Ichimoku', 'SO', 'Volume']
     results = []
 
     for r in [2, 3, 4, 5]:
         for combo in combinations(indikator_list, r):
-            st.write(f"Menguji kombinasi: {', '.join(combo)}")
-
             combo_dict = {key: key in combo for key in indikator_list}
-            df_eval = compute_indicators(df.copy(), combo_dict, params)
-            df_eval['Final_Signal'] = compute_final_signal(df_eval, combo_dict)
-            signal_series = apply_custom_strategy(df_eval, "Final Signal")
             try:
+                df_eval = compute_indicators(df.copy(), combo_dict, params)
+                df_eval['Final_Signal'] = compute_final_signal(df_eval, combo_dict)
+                signal_series = apply_custom_strategy(df_eval, "Final Signal")
+
+                # Pastikan semua sinyal tidak kosong atau hanya Hold
+                if signal_series.nunique() <= 1:
+                    continue
+
                 _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(
                     df_eval, money, signal_series, key_prefix=f"{ticker}_{'_'.join(combo)}"
                 )
+
                 results.append({
                     'Kombinasi': ', '.join(combo),
                     'Akurasi': round(accuracy * 100, 2),
-                    'Keuntungan (Rp)': round(gain),
+                    'Keuntungan (Rp)': round(gain, 2),
                     'Keuntungan (%)': round(gain_pct, 2)
                 })
-            except:
-                continue
 
-    return pd.DataFrame(results).sort_values(by='Keuntungan (%)', ascending=False)
+            except Exception as e:
+                results.append({
+                    'Kombinasi': ', '.join(combo),
+                    'Akurasi': None,
+                    'Keuntungan (Rp)': None,
+                    'Keuntungan (%)': None,
+                    'Error': str(e)
+                })
+
+    df_result = pd.DataFrame(results)
+
+    for col in ['Kombinasi', 'Akurasi', 'Keuntungan (Rp)', 'Keuntungan (%)']:
+        if col not in df_result.columns:
+            df_result[col] = None
+
+    return df_result.sort_values(by='Keuntungan (Rp)', ascending=False).reset_index(drop=True)
+
 
 def get_all_accuracy_logs():
     try:
-        conn = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="",
-            database="indonesia_stock"
-        )
+        conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
         query = """
             SELECT ticker, data_interval, strategy, indicators, accuracy, timestamp
             FROM strategy_accuracy_log
             ORDER BY accuracy DESC
         """
-        df = pd.read_sql(query, conn)
-        return df
+        return pd.read_sql(query, conn)
     except Exception as e:
-        print(f"Error ambil data akurasi: {e}")
+        print(f"Gagal mengambil log akurasi: {e}")
         return pd.DataFrame()
     finally:
-        if conn.is_connected():
-            conn.close()
+        if conn.is_connected(): conn.close()
 
+# def evaluate_all_indicator_and_combinations(ticker, df, params, interval, money=1_000_000):
+#     indikator_list = ['MA', 'MACD', 'Ichimoku', 'SO', 'Volume']
+#     results = []
 
-def evaluate_all_indicator_and_combinations(ticker, df, params, interval, money=1_000_000):
-    from modules.indicators import compute_indicators
-    from modules.analysis import compute_final_signal
-    from modules.backtesting import apply_custom_strategy, run_backtesting_profit
-    from itertools import combinations
+#     # Individu
+#     for ind in indikator_list:
+#         ind_dict = {key: (key == ind) for key in indikator_list}
+#         df_ind = compute_indicators(df.copy(), ind_dict, params)
+#         df_ind['Final_Signal'] = compute_final_signal(df_ind, ind_dict)
+#         signal_series = apply_custom_strategy(df_ind, "Final Signal")
+#         try:
+#             _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(df_ind, money, signal_series, key_prefix=f"{ticker}_{ind}_single", enable_download=False)
+#             results.append({
+#                 'Tipe': 'Indikator',
+#                 'Indikator / Kombinasi': ind,
+#                 'Akurasi (%)': round(accuracy * 100, 2),
+#                 'Profit (Rp)': round(gain),
+#                 'Profit (%)': round(gain_pct, 2)
+#             })
+#         except:
+#             continue
 
-    indikator_list = ['MA', 'MACD', 'Ichimoku', 'SO', 'Volume']
-    results = []
+#     # Kombinasi
+#     for r in [2, 3, 4, 5]:
+#         for combo in combinations(indikator_list, r):
+#             combo_dict = {key: key in combo for key in indikator_list}
+#             df_combo = compute_indicators(df.copy(), combo_dict, params)
+#             df_combo['Final_Signal'] = compute_final_signal(df_combo, combo_dict)
+#             signal_series = apply_custom_strategy(df_combo, "Final Signal")
+#             try:
+#                 _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(df_combo, money, signal_series, key_prefix=f"{ticker}_{'_'.join(combo)}_combo", enable_download=False)
+#                 results.append({
+#                     'Tipe': 'Kombinasi',
+#                     'Indikator / Kombinasi': ', '.join(combo),
+#                     'Akurasi (%)': round(accuracy * 100, 2),
+#                     'Profit (Rp)': round(gain),
+#                     'Profit (%)': round(gain_pct, 2)
+#                 })
+#             except:
+#                 continue
 
-    # Evaluasi per indikator tunggal
-    for ind in indikator_list:
-        single_dict = {key: (key == ind) for key in indikator_list}
-        df_ind = compute_indicators(df.copy(), single_dict, params)
-        df_ind['Final_Signal'] = compute_final_signal(df_ind, single_dict)
-        signal_series = apply_custom_strategy(df_ind, "Final Signal")
-        try:
-            _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(
-                df_ind, money, signal_series, key_prefix=f"{ticker}_{ind}_single"
-            )
-            results.append({
-                'Tipe': 'Individual',
-                'Indikator / Kombinasi': ind,
-                'Akurasi (%)': round(accuracy * 100, 2),
-                'Profit (Rp)': round(gain),
-                'Profit (%)': round(gain_pct, 2)
-            })
-        except:
-            continue
-
-    # Evaluasi kombinasi indikator (2–5)
-    for r in [2, 3, 4, 5]:
-        for combo in combinations(indikator_list, r):
-            combo_dict = {key: key in combo for key in indikator_list}
-            df_combo = compute_indicators(df.copy(), combo_dict, params)
-            df_combo['Final_Signal'] = compute_final_signal(df_combo, combo_dict)
-            signal_series = apply_custom_strategy(df_combo, "Final Signal")
-            try:
-                _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(
-                    df_combo, money, signal_series, key_prefix=f"{ticker}_{'_'.join(combo)}_combo"
-                )
-                results.append({
-                    'Tipe': 'Kombinasi',
-                    'Indikator / Kombinasi': ', '.join(combo),
-                    'Akurasi (%)': round(accuracy * 100, 2),
-                    'Profit (Rp)': round(gain),
-                    'Profit (%)': round(gain_pct, 2)
-                })
-            except:
-                continue
-
-    return pd.DataFrame(results).sort_values(by='Akurasi (%)', ascending=False).reset_index(drop=True)
-
-
-
-    #     # Cek apakah data sudah ada (berdasarkan kombinasi unik)
-    #     check_query = """
-    #         SELECT COUNT(*) FROM strategy_accuracy_log
-    #         WHERE ticker = %s AND data_interval = %s AND strategy = %s AND indicators = %s
-    #     """
-    #     cursor.execute(check_query, (ticker, interval, strategy, indicators_enabled))
-    #     count = cursor.fetchone()[0]
-
-    #     # check_query = """
-    #     # SELECT COUNT(*) FROM strategy_accuracy_log
-    #     # WHERE ticker = %s AND data_interval = %s AND strategy = %s AND indicators = %s AND parameters = %s
-    #     # """
-    #     # cursor.execute(check_query, (ticker, interval, strategy, indicators_enabled, params_json))
-    #     # if cursor.fetchone()[0] > 0:
-    #     #     print("Data strategi ini sudah ada.")
-    #     #     return
-
-    #     if count == 0:
-    #         insert_query = """
-    #             INSERT INTO strategy_accuracy_log
-    #             (ticker, data_interval, strategy, indicators, parameters, accuracy)
-    #             VALUES (%s, %s, %s, %s, %s, %s)
-    #         """
-    #         values = (ticker, interval, strategy, indicators_enabled, params_json, accuracy_value)
-    #         cursor.execute(insert_query, values)
-    #         conn.commit()
-    #         print(f"Akurasi strategi untuk {ticker} berhasil disimpan ke database.")
-    #     else:
-    #         print(f"Data akurasi untuk {ticker} dan strategi yang sama sudah ada. Tidak disimpan ulang.")
-
-    # except Exception as e:
-    #     print(f"Gagal menyimpan akurasi ke database: {e}")
-
-    # finally:
-    #     if conn.is_connected():
-    #         cursor.close()
-    #         conn.close()
+#     return pd.DataFrame(results).sort_values(by='Akurasi (%)', ascending=False).reset_index(drop=True)

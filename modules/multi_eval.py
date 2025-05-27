@@ -1,19 +1,23 @@
-# modules/multi_eval.py
 import mysql.connector
-import json
 from datetime import datetime
 
 def save_multi_ticker_evaluation_to_db(
-    tickers, interval, indicators_dict, strategy,
-    start_date, end_date,
-    total_accuracy, total_profit, total_money, final_money,
+    tickers,
+    interval,
+    indicators_dict,
+    strategy,
+    start_date,
+    end_date,
+    total_accuracy,
+    total_profit,
+    total_money,
+    final_money,
     db_config={"host": "localhost", "user": "root", "password": "", "database": "indonesia_stock"}
 ):
     try:
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
 
-        # Buat tabel jika belum ada
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS multi_ticker_evaluation (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -34,27 +38,24 @@ def save_multi_ticker_evaluation_to_db(
         tickers_combination = ', '.join(sorted(tickers))
         indicators_used = ', '.join([key for key, val in indicators_dict.items() if val])
 
-        # Cek apakah kombinasi sudah pernah disimpan
-        check_query = """
+        cursor.execute("""
             SELECT COUNT(*) FROM multi_ticker_evaluation
             WHERE tickers_combination = %s AND interval = %s AND strategy = %s
               AND indicators = %s AND start_date = %s AND end_date = %s
-        """
-        cursor.execute(check_query, (
+        """, (
             tickers_combination, interval, strategy,
             indicators_used, start_date, end_date
         ))
+
         if cursor.fetchone()[0] > 0:
             return False, "Hasil kombinasi ini sudah tersimpan sebelumnya."
 
-        # Insert ke DB
-        insert_query = """
+        cursor.execute("""
             INSERT INTO multi_ticker_evaluation
             (tickers_combination, interval, indicators, strategy, start_date, end_date,
              total_accuracy, total_profit, total_money, final_money)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        cursor.execute(insert_query, (
+        """, (
             tickers_combination, interval, indicators_used, strategy,
             start_date, end_date,
             total_accuracy, total_profit, total_money, final_money
