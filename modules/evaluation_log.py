@@ -118,6 +118,7 @@ def get_all_accuracy_logs():
     finally:
         if conn.is_connected(): conn.close()
 
+
 # def evaluate_all_indicator_and_combinations(ticker, df, params, interval, money=1_000_000):
 #     indikator_list = ['MA', 'MACD', 'Ichimoku', 'SO', 'Volume']
 #     results = []

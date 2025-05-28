@@ -7,6 +7,7 @@ import json
 import logging
 from sklearn.metrics import accuracy_score
 import plotly.graph_objects as go
+from modules.custom_strategies import apply_custom_strategy
 
 engine = create_engine('mysql+mysqlconnector://root:@localhost/indonesia_stock')
 

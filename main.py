@@ -3,10 +3,12 @@ import pandas as pd
 from datetime import datetime
 import plotly.graph_objects as go
 from modules.database import get_ticker_list, get_data_from_db
+from modules.evaluation_log import get_all_accuracy_logs
 from modules.indicators import compute_indicators
 from modules.visuals import plot_indicators, plot_signal_pairs
 from modules.backtesting import show_indicator_explanation
 from modules.custom_strategies import apply_custom_strategy
+from modules.next_step import generate_next_step_recommendation
 from modules.analysis import (
     compute_final_signal, display_analysis_table_with_summary, save_analysis_to_json_db,
     fetch_saved_titles, load_analysis_by_title, show_signal_recap, evaluate_strategy_accuracy
@@ -47,8 +49,6 @@ Dengan fitur analisis dan backtesting untuk:
 - Mengevaluasi efektivitas kombinasi indikator dengan menggunakan filter di sidebar untuk menyesuaikan analisis dengan preferensi Anda.
 """)
 
-from modules.evaluation_log import get_all_accuracy_logs
-
 # Load data
 df_logs = get_all_accuracy_logs()
 if not df_logs.empty and 'accuracy' in df_logs.columns:
@@ -58,7 +58,7 @@ else:
     df_sorted = pd.DataFrame()
 
 
-st.markdown("#### Top Strategi Saham Berdasarkan Akurasi")
+st.markdown("#### Top Strategi Saham Berdasarkan Profit")
 
 # Setup slider
 total = len(df_sorted)
@@ -200,7 +200,7 @@ with st.sidebar.expander("Setting Parameter Indikator"):
     }
 
 # Tab Navigasi
-tab1, tab2, tab3, tab4, tab5, tab6, = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6= st.tabs([
     "Analisis",
     "Analisis Tersimpan",
     "Backtesting Analisis",
@@ -315,6 +315,26 @@ with tab3:
                 st.warning("Kolom 'Keuntungan (Rp)' tidak tersedia atau kosong.")
         else:
             st.info("Belum ada hasil evaluasi kombinasi indikator yang tersedia.")
+
+        st.markdown("---")
+        st.subheader("Rekomendasi Langkah Selanjutnya (Next Step)")
+        try:
+            if not df_bt.empty and 'Final_Signal' in df_bt.columns:
+                next_step = generate_next_step_recommendation(df_bt, indicators)  # Ganti ini sesuai nama yang Anda pakai
+                st.markdown(f"""
+                **Ticker:** `{ticker}`  
+                **Tanggal terakhir data:** `{next_step['date']}`  
+                **Rekomendasi:** **{next_step['recommendation']}**  
+                **Keyakinan:** `{next_step['confidence']}`  
+                **Alasan Pendukung:**  
+                """)
+                for reason in next_step['reasons']:
+                    st.write(f"- {reason}")
+            else:
+                st.warning("Data atau sinyal tidak tersedia untuk rekomendasi.")
+        except Exception as e:
+            st.error(f"Gagal menampilkan rekomendasi langkah selanjutnya: {e}")
+
 
 with tab4:
     st.subheader("Backtesting Profit")
