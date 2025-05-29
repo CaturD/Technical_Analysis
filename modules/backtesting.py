@@ -108,6 +108,7 @@ def run_backtesting_profit(df, money, signal_series, key_prefix="default"):
     st.info(f"Akurasi sinyal: **{accuracy * 100:.2f}%**")
 
     return df_result, final_value, gain, gain_pct, accuracy
+
 def show_indicator_explanation(indicators):
     st.markdown("""
     ### Cara Membaca Indikator

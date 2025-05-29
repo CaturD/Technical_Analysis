@@ -118,46 +118,19 @@ def get_all_accuracy_logs():
     finally:
         if conn.is_connected(): conn.close()
 
-
-# def evaluate_all_indicator_and_combinations(ticker, df, params, interval, money=1_000_000):
-#     indikator_list = ['MA', 'MACD', 'Ichimoku', 'SO', 'Volume']
-#     results = []
-
-#     # Individu
-#     for ind in indikator_list:
-#         ind_dict = {key: (key == ind) for key in indikator_list}
-#         df_ind = compute_indicators(df.copy(), ind_dict, params)
-#         df_ind['Final_Signal'] = compute_final_signal(df_ind, ind_dict)
-#         signal_series = apply_custom_strategy(df_ind, "Final Signal")
-#         try:
-#             _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(df_ind, money, signal_series, key_prefix=f"{ticker}_{ind}_single", enable_download=False)
-#             results.append({
-#                 'Tipe': 'Indikator',
-#                 'Indikator / Kombinasi': ind,
-#                 'Akurasi (%)': round(accuracy * 100, 2),
-#                 'Profit (Rp)': round(gain),
-#                 'Profit (%)': round(gain_pct, 2)
-#             })
-#         except:
-#             continue
-
-#     # Kombinasi
-#     for r in [2, 3, 4, 5]:
-#         for combo in combinations(indikator_list, r):
-#             combo_dict = {key: key in combo for key in indikator_list}
-#             df_combo = compute_indicators(df.copy(), combo_dict, params)
-#             df_combo['Final_Signal'] = compute_final_signal(df_combo, combo_dict)
-#             signal_series = apply_custom_strategy(df_combo, "Final Signal")
-#             try:
-#                 _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(df_combo, money, signal_series, key_prefix=f"{ticker}_{'_'.join(combo)}_combo", enable_download=False)
-#                 results.append({
-#                     'Tipe': 'Kombinasi',
-#                     'Indikator / Kombinasi': ', '.join(combo),
-#                     'Akurasi (%)': round(accuracy * 100, 2),
-#                     'Profit (Rp)': round(gain),
-#                     'Profit (%)': round(gain_pct, 2)
-#                 })
-#             except:
-#                 continue
-
-#     return pd.DataFrame(results).sort_values(by='Akurasi (%)', ascending=False).reset_index(drop=True)
+def get_top_strategies_by_profit(limit=10):
+    try:
+        conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
+        query = """
+            SELECT ticker, profit, profit_percentage, accuracy, timestamp
+            FROM data_backtesting
+            ORDER BY profit DESC
+            LIMIT %s
+        """
+        return pd.read_sql(query, conn, params=(limit,))
+    except Exception as e:
+        print(f"Gagal mengambil data strategi berdasarkan profit: {e}")
+        return pd.DataFrame()
+    finally:
+        if conn.is_connected():
+            conn.close()

@@ -9,6 +9,7 @@ from modules.visuals import plot_indicators, plot_signal_pairs
 from modules.backtesting import show_indicator_explanation
 from modules.custom_strategies import apply_custom_strategy
 from modules.next_step import generate_next_step_recommendation
+from modules.evaluation_log import get_top_strategies_by_profit
 from modules.analysis import (
     compute_final_signal, display_analysis_table_with_summary, save_analysis_to_json_db,
     fetch_saved_titles, load_analysis_by_title, show_signal_recap, evaluate_strategy_accuracy
@@ -52,7 +53,8 @@ Dengan fitur analisis dan backtesting untuk:
 # Load data
 df_logs = get_all_accuracy_logs()
 if not df_logs.empty and 'accuracy' in df_logs.columns:
-    df_sorted = df_logs.sort_values(by='accuracy', ascending=False).reset_index(drop=True)
+    df_logs = get_top_strategies_by_profit(20)
+    df_sorted = df_logs.sort_values(by='profit', ascending=False).reset_index(drop=True)
 else:
     st.warning("Belum ada data strategi yang tersimpan atau tabel belum tersedia.")
     df_sorted = pd.DataFrame()
@@ -120,14 +122,14 @@ with cols[1]:
     if not df_show.empty:
         card_cols = st.columns(len(df_show))
         for i, (_, row) in enumerate(df_show.iterrows()):
-            color = "green" if row['accuracy'] >= 0.5 else "red"
+            color = "green" if row['profit'] >= 0 else "red"
             with card_cols[i]:
                 st.markdown(f"""
                     <div style='padding: 10px; border-radius: 10px; background-color: #f9f9f9; border: 1px solid #ddd; text-align:center;'>
                         <strong>{row['ticker']}</strong><br>
-                        <span style='color: {color}; font-size: 18px; font-weight: bold;'>{row['accuracy']*100:.2f}%</span><br>
-                        <span style='font-size: 14px;'>{row['indicators']}</span><br>
-                        <span style='font-size: 13px;'>({row['strategy']})</span>
+                        <span style='color: {color}; font-size: 18px; font-weight: bold;'>Rp{row['profit']:,.0f}</span><br>
+                        <span style='font-size: 13px;'>Profit: {row['profit_percentage']:.2f}%</span><br>
+                        <span style='font-size: 13px;'>Akurasi: {row['accuracy']*100:.2f}%</span>
                     </div>
                 """, unsafe_allow_html=True)
     else:
