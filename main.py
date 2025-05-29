@@ -7,7 +7,7 @@ from modules.evaluation_log import get_all_accuracy_logs
 from modules.indicators import compute_indicators
 from modules.visuals import plot_indicators, plot_signal_pairs
 from modules.backtesting import show_indicator_explanation
-from modules.custom_strategies import apply_custom_strategy
+# from modules.custom_strategies import apply_custom_strategy
 from modules.next_step import generate_next_step_recommendation
 from modules.evaluation_log import get_top_strategies_by_profit
 from modules.analysis import (
@@ -160,15 +160,15 @@ st.sidebar.markdown(f"**Interval terpilih:** {interval}")
 start_date = st.sidebar.date_input("Tanggal Mulai", datetime(2024, 5, 12))
 end_date = st.sidebar.date_input("Tanggal Selesai", datetime(2025, 5, 12))
 money = st.sidebar.number_input("Modal Awal (Rp)", value=1_000_000, step=500_000)
-strategy = st.sidebar.selectbox(
-    "Pilih Strategi Backtesting",
-    [
-        "Final Signal", "Buy & Hold",
-        "MA Only", "MACD Only", "Ichimoku Only", "SO Only", "Volume Only",
-        "Ichimoku + MA Only", "All Agree", "3 of 5 Majority",
-        "MACD + Volume Confirm", "Ichimoku + MA Trend", "SO + MACD"
-    ]
-)
+# strategy = st.sidebar.selectbox(
+#     "Pilih Strategi Backtesting",
+#     [
+#         "Final Signal", "Buy & Hold",
+#         "MA Only", "MACD Only", "Ichimoku Only", "SO Only", "Volume Only",
+#         "Ichimoku + MA Only", "All Agree", "3 of 5 Majority",
+#         "MACD + Volume Confirm", "Ichimoku + MA Trend", "SO + MACD"
+#     ]
+# )
 
 # Indikator yang digunakan
 indicators = {
@@ -267,20 +267,26 @@ with tab3:
             continue
         df_bt = compute_indicators(df_bt, indicators, params)
         df_bt['Final_Signal'] = compute_final_signal(df_bt, indicators)
-        signal_series = apply_custom_strategy(df_bt, strategy)
-        result_bt = evaluate_strategy_accuracy(df_bt.copy())
+        signal_series = df_bt['Final_Signal']
+        # signal_series = apply_custom_strategy(df_bt, strategy)
+        # result_bt = evaluate_strategy_accuracy(df_bt.copy())
 
-        save_accuracy_evaluation_to_db(
-            ticker=ticker,
-            interval=interval,
-            strategy=strategy,
-            indicators_dict=indicators,
-            params_dict=params,
-            accuracy_value=result_bt["accuracy"]
-        )
-
-        display_accuracy_result(result_bt, "Akurasi Backtesting Analisis")
+        # save_accuracy_evaluation_to_db(
+        #     ticker=ticker,
+        #     interval=interval,
+        #     strategy=strategy,
+        #     indicators_dict=indicators,
+        #     params_dict=params,
+        #     accuracy_value=result_bt["accuracy"]
+        # )
+        # display_accuracy_result(result_bt, "Akurasi Backtesting Analisis")
         df_pairs = evaluate_signal_pairs(df_bt, signal_series)
+        if not df_pairs.empty and 'Profit (%)' in df_pairs.columns:
+            num_profit = (df_pairs['Profit (%)'] > 0).sum()
+            total = len(df_pairs)
+            acc_pair = (num_profit / total) * 100
+            st.metric("Akurasi Pasangan Sinyal", f"{acc_pair:.2f}%")
+
 
         st.subheader("Evaluasi Pasangan Sinyal")
         if df_pairs.empty:
@@ -352,13 +358,14 @@ with tab4:
         if not df_bt.empty:
             df_bt = compute_indicators(df_bt, indicators, params)
             df_bt['Final_Signal'] = compute_final_signal(df_bt, indicators)
-            signal_series = apply_custom_strategy(df_bt, strategy)
+            signal_series = df_bt['Final_Signal']
+            # signal_series = apply_custom_strategy(df_bt, strategy)
             result_profit = result_profit = evaluate_strategy_accuracy(df_bt.copy())
             from modules.evaluation_log import save_accuracy_evaluation_to_db
             save_accuracy_evaluation_to_db(
                 ticker=ticker,
                 interval=interval,
-                strategy=strategy,
+                strategy="Final_Signal",
                 indicators_dict=indicators,
                 params_dict=params,
                 accuracy_value=result_profit["accuracy"]
@@ -407,7 +414,8 @@ with tab6:
             if df_bt is not None and not df_bt.empty:
                 df_bt['Final_Signal'] = compute_final_signal(df_bt, indicators)
                 result = evaluate_strategy_accuracy(df_bt.copy())
-                signal_series = apply_custom_strategy(df_bt, strategy)
+                signal_series = df_bt['Final_Signal']
+                # signal_series = apply_custom_strategy(df_bt, strategy)
                 _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(
                     df_bt, money, signal_series, key_prefix=f"{ticker}_bulk_eval")
 
