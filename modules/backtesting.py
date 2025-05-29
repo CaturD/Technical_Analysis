@@ -36,7 +36,7 @@ def fetch_backtesting_data(ticker, start_date, end_date):
         return pd.DataFrame()
 
 
-def run_backtesting_profit(df, money, signal_series, key_prefix="default"):
+def run_backtesting_profit(df, money, signal_series, key_prefix="default", enable_download=True):
     st.subheader("Simulasi Keuntungan Trading")
     if df.empty or signal_series.empty:
         st.warning("Data atau sinyal kosong.")
@@ -93,16 +93,17 @@ def run_backtesting_profit(df, money, signal_series, key_prefix="default"):
     df_result = pd.DataFrame(history, columns=['Tanggal', 'Sinyal', 'Nilai Portofolio', 'Profit'])
     st.dataframe(df_result, use_container_width=True)
 
-    buffer = BytesIO()
-    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-        df_result.to_excel(writer, index=False, sheet_name='Backtesting')
-    st.download_button(
-        label="⬇ Unduh Hasil Backtesting (Excel)",
-        data=buffer.getvalue(),
-        file_name=f"hasil_backtesting_{key_prefix}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        key=f"download_button_{key_prefix}_profit"
-    )
+    if enable_download:
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            df_result.to_excel(writer, index=False, sheet_name='Backtesting')
+        st.download_button(
+            label="⬇ Unduh Hasil Backtesting (Excel)",
+            data=buffer.getvalue(),
+            file_name=f"hasil_backtesting_{key_prefix}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key=f"download_button_{key_prefix}_profit"
+        )
 
     accuracy = accuracy_score(actuals, predictions)
     st.info(f"Akurasi sinyal: **{accuracy * 100:.2f}%**")
