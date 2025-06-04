@@ -26,6 +26,7 @@ Aplikasi ini adalah dashboard interaktif berbasis **Streamlit** untuk melakukan 
 
   - Hasil backtesting (nilai portofolio & profit)
   - Rekap sinyal analisis
+- **Pemilihan Indikator Terbaik** melalui skrip `best_single_indicator.py`
 
 ---
 
