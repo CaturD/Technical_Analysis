@@ -34,13 +34,11 @@ def compute_indicators(data, indicators, params):
         kijun = params['kijun']
         span_b = params['senkou_b']
         shift = params['shift']
-
         data['Tenkan_sen'] = (data['High'].rolling(window=tenkan).max() + data['Low'].rolling(window=tenkan).min()) / 2
         data['Kijun_sen'] = (data['High'].rolling(window=kijun).max() + data['Low'].rolling(window=kijun).min()) / 2
         data['Senkou_span_A'] = ((data['Tenkan_sen'] + data['Kijun_sen']) / 2).shift(shift)
         data['Senkou_span_B'] = ((data['High'].rolling(window=span_b).max() + data['Low'].rolling(window=span_b).min()) / 2).shift(shift)
         data['Chikou_span'] = data['Close'].shift(-shift)
-
         data['Signal_Ichimoku'] = 'Hold'
         data.loc[data['Close'] > data['Senkou_span_A'], 'Signal_Ichimoku'] = 'Buy'
         data.loc[data['Close'] < data['Senkou_span_B'], 'Signal_Ichimoku'] = 'Sell'
