@@ -24,6 +24,7 @@ from modules.evaluation_log import (
 )
 from modules.evaluate_best_strategy import evaluate_strategies_combined
 from modules.multi_eval import save_multi_ticker_evaluation_to_db
+from modules.best_indicator import get_best_indicator
 
 # Jalankan di awal main.py
 import mysql.connector
@@ -156,8 +157,8 @@ interval = st.sidebar.selectbox("Pilih Interval", [
 index=12
 )
 st.sidebar.markdown(f"**Interval terpilih:** {interval}")
-start_date = st.sidebar.date_input("Tanggal Mulai", datetime(2024, 5, 12))
-end_date = st.sidebar.date_input("Tanggal Selesai", datetime(2025, 5, 12))
+start_date = st.sidebar.date_input("Tanggal Mulai", datetime(2024, 5, 31))
+end_date = st.sidebar.date_input("Tanggal Selesai", datetime(2025, 5, 31))
 money = st.sidebar.number_input("Modal Awal (Rp)", value=1_000_000, step=500_000)
 
 # Indikator yang digunakan
@@ -198,7 +199,7 @@ with st.sidebar.expander("Setting Parameter Indikator"):
     }
 
 # Tab Navigasi
-tab1, tab2, tab3, tab4, tab5, tab6, tab7= st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "Analisis",
     "Analisis Tersimpan",
     "Backtesting Analisis",
@@ -451,26 +452,43 @@ with tab6:
 
 with tab7:
     st.subheader("Evaluasi Strategi Terbaik (Per Indikator & Kombinasi)")
-    st.markdown("""
+    st.markdown(
+        """
         Fitur ini mengevaluasi dan membandingkan performa dari:
         - Setiap indikator teknikal secara individual
         - Kombinasi 2–5 indikator
         - Strategi logika seperti All Agree, Final Signal, dll
+        Output berupa tabel & grafik akurasi dan profit. Di bawah tabel
+        strategi, ditampilkan juga indikator tunggal dengan profit tertinggi.
+        """
+    )
 
-        Output berupa tabel & grafik akurasi dan profit.
-    """)
-    
     for ticker in tickers:
         st.markdown(f"### {ticker}")
         df_eval = get_data_from_db(ticker, interval)
         df_eval = df_eval.loc[start_date:end_date]
         if not df_eval.empty:
-            df_result = evaluate_strategies_combined(ticker, df_eval, params, interval, money)
+            df_result = evaluate_strategies_combined(
+                ticker, df_eval, params, interval, money
+            )
             st.dataframe(df_result, use_container_width=True)
+
+            st.markdown("**Indikator Tunggal Terbaik**")
+            best_row, df_best = get_best_indicator(
+                ticker, df_eval, params, interval, money
+            )
+            st.dataframe(df_best, use_container_width=True)
+            if best_row:
+                st.success(
+                    f"Indikator terbaik: {best_row['Indikator']} - Profit Rp{best_row['Keuntungan (Rp)']:,.0f} "
+                    f"({best_row['Keuntungan (%)']:.2f}%)"
+                )
+            else:
+                st.warning("Tidak ada hasil evaluasi yang dapat ditentukan.")
         else:
-            st.warning("Data tidak tersedia untuk ticker dan interval yang dipilih.")
-
-
+            st.warning(
+                "Data tidak tersedia untuk ticker dan interval yang dipilih."
+            )
 
 
 

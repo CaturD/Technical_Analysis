@@ -107,13 +107,20 @@ def plot_signal_markers(df, signal_column='Final_Signal'):
 def plot_signal_pairs(df, signal_pairs):
     st.subheader("Visualisasi Pasangan Sinyal Buy–Sell")
 
-    fig = go.Figure()
+    fig = make_subplots(
+        rows=2, cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.03,
+        row_heights=[0.7, 0.3]
+    )
+
     fig.add_trace(go.Scatter(
         x=df.index,
         y=df['Close'],
         mode='lines',
         name='Harga Close',
-        line=dict(color='lightgray')))
+        # line=dict(color='lightgray')))
+        line=dict(color='lightgray')), row=1, col=1)
 
     for i, row in signal_pairs.iterrows():
         fig.add_trace(go.Scatter(
@@ -130,14 +137,35 @@ def plot_signal_pairs(df, signal_pairs):
             x=[row['Buy Date'], row['Sell Date']],
             y=[row['Buy Price'], row['Sell Price']],
             mode='lines', line=dict(dash='dot', color='blue'), showlegend=False))
+        
+    if 'Volume' in df.columns:
+        fig.add_trace(
+            go.Bar(
+                x=df.index,
+                y=df['Volume'],
+                name='Volume',
+                marker_color='gray'
+            ), row=2, col=1
+        )
+        if 'Volume_MA20' in df.columns:
+            fig.add_trace(
+                go.Scatter(
+                    x=df.index,
+                    y=df['Volume_MA20'],
+                    name='Volume MA20',
+                    line=dict(color='orange', dash='dash')
+                ), row=2, col=1
+            )
 
     fig.update_layout(
-        height=500,
-        xaxis_title='Tanggal',
-        yaxis_title='Harga',
+        height=600,
         hovermode='x unified',
         margin=dict(l=20, r=20, t=40, b=40),
         legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='center', x=0.5)
     )
+    fig.update_yaxes(title_text='Harga', row=1, col=1)
+    if 'Volume' in df.columns:
+        fig.update_yaxes(title_text='Volume', row=2, col=1)
+    fig.update_xaxes(title_text='Tanggal', row=2, col=1)
 
     st.plotly_chart(fig, use_container_width=True)
