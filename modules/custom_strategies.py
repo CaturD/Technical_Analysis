@@ -47,8 +47,8 @@ def apply_custom_strategy(df, strategy):
 
     elif strategy == "Ichimoku + MA Trend":
         return df.apply(lambda row:
-            'Buy' if row.get('Signal_Ichimoku') == 'Buy' and row.get('MA20', 0) > row.get('MA50', 0)
-            else 'Sell' if row.get('Signal_Ichimoku') == 'Sell' and row.get('MA20', 0) < row.get('MA50', 0)
+            'Buy' if row.get('Signal_Ichimoku') == 'Buy' and row.get('MA5', 0) > row.get('MA20', 0)
+            else 'Sell' if row.get('Signal_Ichimoku') == 'Sell' and row.get('MA5', 0) < row.get('MA20', 0)
             else 'Hold', axis=1)
 
     elif strategy == "SO + MACD":

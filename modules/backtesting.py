@@ -117,9 +117,9 @@ def show_indicator_explanation(indicators):
     if indicators.get("MA"):
         st.markdown("""
         #### Moving Average (MA)
-        - **MA20** dan **MA50** menunjukkan rata-rata pergerakan harga.
-        - **Buy**: MA20 memotong MA50 dari bawah (golden cross).
-        - **Sell**: MA20 memotong MA50 dari atas (death cross).
+        - **MA5**, **MA10**, dan **MA20** menunjukkan rata-rata pergerakan harga.
+        - **Buy**: MA5 memotong MA20 dari bawah (golden cross).
+        - **Sell**: MA5 memotong MA20 dari atas (death cross).
         """)
     if indicators.get("MACD"):
         st.markdown("""
@@ -365,11 +365,11 @@ def evaluate_individual_indicators(ticker, df, params, interval, money):
 #         result = []
 #         for i in range(len(df)):
 #             ich = df.iloc[i].get('Signal_Ichimoku')
-#             ma20 = df.iloc[i].get('MA20')
-#             ma50 = df.iloc[i].get('MA50')
+#             ma5 = df.iloc[i].get('MA5')
+#             if ich == 'Buy' and ma5 > ma20:
 #             if ich == 'Buy' and ma20 > ma50:
 #                 result.append('Buy')
-#             elif ich == 'Sell' and ma20 < ma50:
+#             elif ich == 'Sell' and ma5 < ma20:
 #                 result.append('Sell')
 #             else:
 #                 result.append('Hold')

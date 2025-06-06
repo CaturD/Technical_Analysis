@@ -38,6 +38,6 @@ def generate_next_step_recommendation(df, indicators):
 
     # Hitung confidence
     confidence_score = 60 + 10 * len(result['reasons'])
-    result['confidence'] = f"{min(confidence_score, 100)}%"
+    result['confidence'] = f"{min(confidence_score, 99)}%"
 
     return result

@@ -25,6 +25,7 @@ from modules.evaluation_log import (
 from modules.evaluate_best_strategy import evaluate_strategies_combined
 from modules.multi_eval import save_multi_ticker_evaluation_to_db
 from modules.best_indicator import get_best_indicator
+from modules.strategy_utils import generate_combination_results
 
 # Jalankan di awal main.py
 import mysql.connector
@@ -184,8 +185,9 @@ signal_filter = st.sidebar.multiselect(
 # perubahan parameter indikator
 with st.sidebar.expander("Setting Parameter Indikator"):
     params = {
-        'ma_short': st.number_input("MA Short", value=20, min_value=1),
-        'ma_long': st.number_input("MA Long", value=50, min_value=1),
+        'ma5': st.number_input("MA5", value=5, min_value=1),
+        'ma10': st.number_input("MA10", value=10, min_value=1),
+        'ma20': st.number_input("MA20", value=20, min_value=1),
         'macd_fast': st.number_input("MACD Fast", value=12, min_value=1),
         'macd_slow': st.number_input("MACD Slow", value=26, min_value=1),
         'macd_signal': st.number_input("MACD Signal", value=9, min_value=1),
@@ -199,14 +201,16 @@ with st.sidebar.expander("Setting Parameter Indikator"):
     }
 
 # Tab Navigasi
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab_panduan = st.tabs([
     "Analisis",
     "Analisis Tersimpan",
     "Backtesting Analisis",
     "Backtesting Profit",
     "Semua Akurasi Strategi",
     "Evaluasi Gabungan",
-    "Evaluasi Strategi Terbaik"
+    "Evaluasi Strategi Terbaik",
+    # "Winrate Evaluasi Strategi",
+    "Panduan Dashboard"
 ])
 
 with tab1:
@@ -312,7 +316,7 @@ with tab3:
         #     st.info("Belum ada hasil evaluasi kombinasi indikator yang tersedia.")
 
         st.markdown("---")
-        st.subheader("Rekomendasi Langkah Selanjutnya (Next Step)")
+        st.subheader("Rekomendasi Langkah Selanjutnya")
         try:
             if not df_bt.empty and 'Final_Signal' in df_bt.columns:
                 next_step = generate_next_step_recommendation(df_bt, indicators)
@@ -490,6 +494,75 @@ with tab7:
                 "Data tidak tersedia untuk ticker dan interval yang dipilih."
             )
 
+# with tab8:
+#     st.subheader("Winrate Evaluasi Strategi")
+#     st.markdown("""
+#     Fitur ini menghitung winrate dari strategi trading berdasarkan:
+#     - Single Indikator (individu)
+#     - Kombinasi Indikator (2–5 indikator)
+    
+#     Setiap strategi dievaluasi berdasarkan persentase posisi menang (profit > 0), akurasi, dan total profit.
+#     """)
+
+#     tickers = get_ticker_list()
+#     selected_ticker = st.selectbox("Pilih Ticker untuk Evaluasi", tickers)
+#     interval = st.selectbox("Pilih Interval", ["1 day", "1 week", "1 month"], index=0)
+#     start_date = st.date_input("Tanggal Mulai", datetime(2024, 5, 1), key="start_winrate")
+#     end_date = st.date_input("Tanggal Selesai", datetime(2025, 5, 31), key="end_winrate")
+#     money = st.number_input("Modal Awal (Rp)", value=1_000_000, step=500_000, key="money_winrate")
+
+#     indikator_list = ['MA', 'MACD', 'Ichimoku', 'SO', 'Volume']
+
+#     if st.button("Hitung Winrate Strategi"):
+#         df_data = get_data_from_db(selected_ticker, interval)
+#         df_data = df_data.loc[start_date:end_date]
+#         if not df_data.empty:
+#             result_df = generate_combination_results(selected_ticker, df_data, indikator_list, params, interval, money)
+
+#             if not result_df.empty:
+#                 result_df['Winrate (%)'] = result_df['Keuntungan (Rp)'].apply(lambda x: 100 if x > 0 else 0)
+#                 st.dataframe(result_df, use_container_width=True)
+
+#                 top_result = result_df.loc[result_df['Keuntungan (Rp)'].idxmax()]
+#                 st.success(f"Strategi terbaik: {top_result['Kombinasi']} dengan Profit Rp{top_result['Keuntungan (Rp)']:,.0f}, Akurasi {top_result['Akurasi']}%, Winrate {top_result['Winrate (%)']}%")
+#             else:
+#                 st.warning("Tidak ada hasil evaluasi yang dapat ditampilkan.")
+#         else:
+#             st.warning("Data tidak tersedia untuk ticker dan interval yang dipilih.")
+
+
+with tab_panduan:
+    st.subheader("Panduan Penggunaan Dashboard")
+    st.markdown("""
+    Dashboard ini dirancang untuk membantu pengguna menganalisis dan mengevaluasi arah tren harga saham berdasarkan indikator teknikal.
+
+    ### Tujuan
+    - Menentukan waktu terbaik untuk beli (Buy), jual (Sell), atau tahan (Hold)
+    - Membandingkan strategi berdasarkan **akurasi** dan **profit historis**
+    - Menguji kombinasi indikator dan strategi logika
+
+    ### Penjelasan Fitur
+    - **Analisis Saham**: Menampilkan sinyal dari indikator teknikal dan sinyal gabungan (`Final Signal`) berdasarkan voting mayoritas.
+    - **Backtesting Analisis**: Mengukur akurasi sinyal terhadap arah harga keesokan harinya.
+    - **Backtesting Profit**: Simulasi keuntungan jika strategi dijalankan dengan modal sungguhan.
+    - **Evaluasi Gabungan**: Menggabungkan hasil dari beberapa saham untuk melihat akurasi dan total keuntungan.
+    - **Strategi Terbaik**: Menampilkan hasil evaluasi setiap indikator dan kombinasi strategi.
+
+    ### Cara Membaca Sinyal
+    - **Buy**: Disarankan untuk membeli karena sinyal teknikal menunjukkan potensi kenaikan harga.
+    - **Sell**: Disarankan menjual karena potensi harga turun.
+    - **Hold**: Tidak ada sinyal jelas, tunggu konfirmasi dari pasar.
+
+    ### Tips Interpretasi
+    - Sinyal yang **muncul berurutan** cenderung lebih kuat (misal: Buy muncul 3 hari berturut-turut).
+    - Kombinasi beberapa indikator lebih stabil dibanding 1 indikator tunggal.
+    - Perhatikan **akurasi** dan **profit** secara bersamaan untuk memilih strategi terbaik.
+
+    ### Tentang Parameter Indikator
+    - Anda bisa menyesuaikan parameter seperti MA period, MACD Fast/Slow, dll. di sidebar.
+    - Parameter default mengikuti literatur umum namun bisa diubah sesuai karakteristik saham.
+
+    """)
 
 
 # GUNAKAN SAAT ERROR DATABASE

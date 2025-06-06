@@ -6,13 +6,14 @@ def compute_indicators(data, indicators, params):
 
     # Moving Averages
     if indicators.get('MA'):
-        data['MA20'] = ta.SMA(data['Close'], timeperiod=params['ma_short'])
-        data['MA50'] = ta.SMA(data['Close'], timeperiod=params['ma_long'])
+        data['MA5'] = ta.SMA(data['Close'], timeperiod=params.get('ma5', 5))
+        data['MA10'] = ta.SMA(data['Close'], timeperiod=params.get('ma10', 10))
+        data['MA20'] = ta.SMA(data['Close'], timeperiod=params.get('ma20', 20))
         threshold = 0.01
-        diff = abs(data['MA20'] - data['MA50']) / data['MA50']
+        diff = abs(data['MA5'] - data['MA20']) / data['MA20']
         data['Signal_MA'] = 'Hold'
-        data.loc[(data['MA20'] > data['MA50']) & (diff > threshold), 'Signal_MA'] = 'Buy'
-        data.loc[(data['MA20'] < data['MA50']) & (diff > threshold), 'Signal_MA'] = 'Sell'
+        data.loc[(data['MA5'] > data['MA20']) & (diff > threshold), 'Signal_MA'] = 'Buy'
+        data.loc[(data['MA5'] < data['MA20']) & (diff > threshold), 'Signal_MA'] = 'Sell'
 
     # MACD
     if indicators.get('MACD'):

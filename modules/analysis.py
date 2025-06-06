@@ -24,7 +24,7 @@ def compute_final_signal(data, indicators):
 def display_analysis_table_with_summary(df, indicators, signal_filter):
     cols = []
     if indicators.get('MA'):
-        cols += ['MA20', 'MA50', 'Signal_MA']
+        cols += ['MA5', 'MA10', 'MA20', 'Signal_MA']
     if indicators.get('MACD'):
         cols += ['MACD', 'MACD_signal', 'MACD_hist', 'Signal_MACD']
     if indicators.get('Ichimoku'):

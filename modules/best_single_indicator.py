@@ -5,8 +5,9 @@ from modules.database import get_data_from_db
 from modules.best_indicator import get_best_indicator
 
 DEFAULT_PARAMS = {
-    'ma_short': 20,
-    'ma_long': 50,
+    'ma5': 5,
+    'ma10': 10,
+    'ma20': 20,
     'macd_fast': 12,
     'macd_slow': 26,
     'macd_signal': 9,
@@ -16,7 +17,7 @@ DEFAULT_PARAMS = {
     'tenkan': 9,
     'kijun': 26,
     'senkou_b': 52,
-    'shift': 26,
+    'shift': 26
 }
 
 
