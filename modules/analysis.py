@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 import mysql.connector
+from mysql.connector import errorcode
 import json
 from datetime import datetime
 from sklearn.metrics import accuracy_score
@@ -55,12 +56,25 @@ def save_analysis_to_json_db(ticker, data, indicators):
     try:
         conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
         cursor = conn.cursor()
-        cursor.execute("""
-            ALTER TABLE analisis_indikator
-            ADD COLUMN IF NOT EXISTS title VARCHAR(255),
-            ADD COLUMN IF NOT EXISTS datetime DATETIME,
-            ADD COLUMN IF NOT EXISTS indikator TEXT
-        """)
+        # cursor.execute("""
+        #     ALTER TABLE analisis_indikator
+        #     ADD COLUMN IF NOT EXISTS title VARCHAR(255),
+        #     ADD COLUMN IF NOT EXISTS datetime DATETIME,
+        #     ADD COLUMN IF NOT EXISTS indikator TEXT
+        # """)
+        required_columns = {
+            "title": "VARCHAR(255)",
+            "datetime": "DATETIME",
+            "indikator": "TEXT",
+        }
+        for col, ctype in required_columns.items():
+            try:
+                cursor.execute(
+                    f"ALTER TABLE analisis_indikator ADD COLUMN {col} {ctype}"
+                )
+            except mysql.connector.Error as err:
+                if err.errno != errorcode.ER_DUP_FIELDNAME:
+                    raise
         data = data.reset_index()
         data['Date'] = data['Date'].dt.strftime('%Y-%m-%d')
         json_data = data.to_json(orient='records')

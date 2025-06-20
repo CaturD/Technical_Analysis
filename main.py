@@ -233,6 +233,82 @@ with tab1:
             display_analysis_table_with_summary(data_in_range, indicators, signal_filter)
             save_analysis_to_json_db(ticker, data_in_range, indicators)
 
+        st.markdown("Tren Pergerakan Saham Tahunan per Indikator & Kombinasi")
+
+        # Tambahkan kolom tahun dari index
+        data['Year'] = data.index.year
+
+        def tentukan_tren(grup):
+            buy = (grup == 'Buy').sum()
+            sell = (grup == 'Sell').sum()
+            total = len(grup)
+            if buy / total > 0.4:
+                return "Uptrend"
+            elif sell / total > 0.4:
+                return "Downtrend"
+            else:
+                return "Sideways"
+
+        tren_rows = []
+
+        # Indikator individual
+        for indikator in ['Signal_MA', 'Signal_MACD', 'Signal_Ichimoku', 'Signal_SO', 'Signal_Volume']:
+            if indikator in data.columns:
+                tren_dict = {'Ticker': ticker, 'Indikator': indikator.replace("Signal_", "")}
+                for tahun in [2022, 2023, 2024, 2025]:
+                    df_tahun = data[data['Year'] == tahun]
+                    if not df_tahun.empty:
+                        tren = tentukan_tren(df_tahun[indikator])
+                    else:
+                        tren = '-'
+                    tren_dict[f'Tren {tahun}'] = tren
+                tren_rows.append(tren_dict)
+
+        # Kombinasi indikator aktif (Final_Signal)
+        tren_combo = {'Ticker': ticker, 'Indikator': 'Kombinasi'}
+        for tahun in [2022, 2023, 2024, 2025]:
+            df_tahun = data[data['Year'] == tahun]
+            if not df_tahun.empty:
+                tren = tentukan_tren(df_tahun['Final_Signal'])
+            else:
+                tren = '-'
+            tren_combo[f'Tren {tahun}'] = tren
+        tren_rows.append(tren_combo)
+
+        # Buat dan tampilkan tabel
+        df_tren_multi = pd.DataFrame(tren_rows)
+        st.dataframe(df_tren_multi, use_container_width=True)
+
+        st.markdown("#### Total Sinyal per Indikator")
+
+        indikator_aktif = [k for k, v in indicators.items() if v]
+        sinyal_ringkasan = []
+
+        # Hitung jumlah sinyal per indikator aktif
+        for indikator in indikator_aktif:
+            kolom = f"Signal_{indikator}"
+            if kolom in data.columns:
+                sinyal_counts = data[kolom].value_counts().to_dict()
+
+                if indikator == 'Volume':
+                    sinyal_ringkasan.append({
+                        'Indikator': indikator,
+                        'High Volume': sinyal_counts.get('High Volume', 0),
+                        'Low Volume': sinyal_counts.get('Low Volume', 0),
+                        'Hold': '-'  # tidak relevan
+                    })
+                else:
+                    sinyal_ringkasan.append({
+                        'Indikator': indikator,
+                        'Buy': sinyal_counts.get('Buy', 0),
+                        'Sell': sinyal_counts.get('Sell', 0),
+                        'Hold': sinyal_counts.get('Hold', 0)
+                    })
+
+        df_sinyal_summary = pd.DataFrame(sinyal_ringkasan)
+        st.dataframe(df_sinyal_summary, use_container_width=True)
+
+
 # Tab 2 - Load Analisis Tersimpan
 with tab2:
     st.subheader("Analisis Tersimpan")
@@ -302,19 +378,6 @@ with tab3:
             )
             st.plotly_chart(fig_profit, use_container_width=True)
             
-        # SIMULASI TRADING DI BACKTESTING ANALISIS
-        # df_eval_combo = evaluate_indicator_combinations(ticker, df_bt.copy(), params, interval, money)
-        # if not df_eval_combo.empty:
-        #     st.dataframe(df_eval_combo, use_container_width=True)
-        #     if 'Keuntungan (Rp)' in df_eval_combo.columns and df_eval_combo['Keuntungan (Rp)'].notna().any():
-        #         top_combo = df_eval_combo.loc[df_eval_combo['Keuntungan (Rp)'].idxmax()]
-        #         st.success(f"Kombinasi terbaik: **{top_combo['Kombinasi']}** "
-        #                    f"(Profit: Rp{top_combo['Keuntungan (Rp)']:,} | Akurasi: {top_combo['Akurasi']}%)")
-        #     else:
-        #         st.warning("Kolom 'Keuntungan (Rp)' tidak tersedia atau kosong.")
-        # else:
-        #     st.info("Belum ada hasil evaluasi kombinasi indikator yang tersedia.")
-
         st.markdown("---")
         st.subheader("Rekomendasi Langkah Selanjutnya")
         try:
@@ -494,43 +557,6 @@ with tab7:
                 "Data tidak tersedia untuk ticker dan interval yang dipilih."
             )
 
-# with tab8:
-#     st.subheader("Winrate Evaluasi Strategi")
-#     st.markdown("""
-#     Fitur ini menghitung winrate dari strategi trading berdasarkan:
-#     - Single Indikator (individu)
-#     - Kombinasi Indikator (2–5 indikator)
-    
-#     Setiap strategi dievaluasi berdasarkan persentase posisi menang (profit > 0), akurasi, dan total profit.
-#     """)
-
-#     tickers = get_ticker_list()
-#     selected_ticker = st.selectbox("Pilih Ticker untuk Evaluasi", tickers)
-#     interval = st.selectbox("Pilih Interval", ["1 day", "1 week", "1 month"], index=0)
-#     start_date = st.date_input("Tanggal Mulai", datetime(2024, 5, 1), key="start_winrate")
-#     end_date = st.date_input("Tanggal Selesai", datetime(2025, 5, 31), key="end_winrate")
-#     money = st.number_input("Modal Awal (Rp)", value=1_000_000, step=500_000, key="money_winrate")
-
-#     indikator_list = ['MA', 'MACD', 'Ichimoku', 'SO', 'Volume']
-
-#     if st.button("Hitung Winrate Strategi"):
-#         df_data = get_data_from_db(selected_ticker, interval)
-#         df_data = df_data.loc[start_date:end_date]
-#         if not df_data.empty:
-#             result_df = generate_combination_results(selected_ticker, df_data, indikator_list, params, interval, money)
-
-#             if not result_df.empty:
-#                 result_df['Winrate (%)'] = result_df['Keuntungan (Rp)'].apply(lambda x: 100 if x > 0 else 0)
-#                 st.dataframe(result_df, use_container_width=True)
-
-#                 top_result = result_df.loc[result_df['Keuntungan (Rp)'].idxmax()]
-#                 st.success(f"Strategi terbaik: {top_result['Kombinasi']} dengan Profit Rp{top_result['Keuntungan (Rp)']:,.0f}, Akurasi {top_result['Akurasi']}%, Winrate {top_result['Winrate (%)']}%")
-#             else:
-#                 st.warning("Tidak ada hasil evaluasi yang dapat ditampilkan.")
-#         else:
-#             st.warning("Data tidak tersedia untuk ticker dan interval yang dipilih.")
-
-
 with tab_panduan:
     st.subheader("Panduan Penggunaan Dashboard")
     st.markdown("""
@@ -564,144 +590,3 @@ with tab_panduan:
 
     """)
 
-
-# GUNAKAN SAAT ERROR DATABASE
-# def init_database():
-#     try:
-#         conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
-#         cursor = conn.cursor()
-
-#         # Tabel analisis_indikator
-#         cursor.execute("""
-#         CREATE TABLE IF NOT EXISTS analisis_indikator (
-#             id INT AUTO_INCREMENT PRIMARY KEY,
-#             ticker VARCHAR(10),
-#             title VARCHAR(255),
-#             datetime DATETIME,
-#             hasil_analisis JSON,
-#             indikator TEXT
-#         )
-#         """)
-
-#         # Tabel strategy_accuracy_log
-#         cursor.execute("""
-#         CREATE TABLE IF NOT EXISTS strategy_accuracy_log (
-#             id INT AUTO_INCREMENT PRIMARY KEY,
-#             ticker VARCHAR(20),
-#             data_interval VARCHAR(20),
-#             strategy VARCHAR(50),
-#             indicators TEXT,
-#             parameters JSON,
-#             accuracy FLOAT,
-#             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-#         )
-#         """)
-
-#         conn.commit()
-#         cursor.close()
-#         conn.close()
-#     except Exception as e:
-#         print(f"[!] Gagal inisialisasi database: {e}")
-
-# # Panggil saat startup
-# init_database()
-
-
-# from modules.evaluation_log import get_all_accuracy_logs
-
-# # Ambil data strategi dari database
-# df_logs = get_all_accuracy_logs()
-# top5 = df_logs.sort_values(by=['accuracy', 'timestamp'], ascending=[False, False]).head(5)
-
-# if not top5.empty:
-#     st.markdown("### Top 5 Strategi Saham (Akurasi & Profit Tertinggi)")
-#     cols = st.columns(len(top5))
-#     for i, row in top5.iterrows():
-#         color = "green" if row['accuracy'] >= 0.5 else "red"
-#         with cols[i]:
-#             st.markdown(f"""
-#                 <div style='padding: 10px; border-radius: 10px; background-color: #f9f9f9; border: 1px solid #ddd;'>
-#                     <strong>{row['ticker']}</strong><br>
-#                     <span style='color: {color}; font-size: 18px; font-weight: bold;'>{row['accuracy']*100:.2f}%</span><br>
-#                     <span style='font-size: 14px;'>{row['indicators']}</span><br>
-#                     <span style='font-size: 13px;'>({row['strategy']})</span>
-#                 </div>
-#             """, unsafe_allow_html=True)
-
-
-# Cards
-# with cols[1]:
-#     df_show = df_sorted.iloc[slide_index:slide_index + per_page]
-#     card_cols = st.columns(len(df_show))
-#     for i, (_, row) in enumerate(df_show.iterrows()):
-#         color = "green" if row['accuracy'] >= 0.5 else "red"
-#         with card_cols[i]:
-#             st.markdown(f"""
-#                 <div style='padding: 10px; border-radius: 10px; background-color: #f9f9f9; border: 1px solid #ddd; text-align:center;'>
-#                     <strong>{row['ticker']}</strong><br>
-#                     <span style='color: {color}; font-size: 18px; font-weight: bold;'>{row['accuracy']*100:.2f}%</span><br>
-#                     <span style='font-size: 14px;'>{row['indicators']}</span><br>
-#                     <span style='font-size: 13px;'>({row['strategy']})</span>
-#                 </div>
-#             """, unsafe_allow_html=True)
-
-# with tab6:
-#     st.subheader("Evaluasi Per Indikator")
-#     st.markdown("""
-#         Fitur ini untuk mengetahui kinerja masing-masing indikator teknikal jika digunakan secara tunggal.
-#         - Sistem akan menghitung akurasi dan profit dari tiap indikator.
-#         - Dapat membantu memilih indikator yang paling konsisten.
-#         """,)
-#     for ticker in tickers:
-#         st.markdown(f"### {ticker}")
-#         df_eval = get_data_from_db(ticker, interval)
-#         df_eval = df_eval.loc[start_date:end_date]
-#         if not df_eval.empty:
-#             df_result_eval = evaluate_individual_indicators(ticker, df_eval, params, interval, money)
-#             st.dataframe(df_result_eval, use_container_width=True)
-#         else:
-#             st.warning("Data tidak tersedia untuk ticker dan interval yang dipilih.")
-
-# with tab7:
-#     st.subheader("Evaluasi Kombinasi Indikator")
-#     st.markdown("""
-#         Fitur ini untuk melakukan uji performa kombinasi 2–3 indikator sekaligus.
-#         - Digunakan untuk menemukan sinergi antar indikator.
-#         - Hasil yang bagus berarti kombinasi indikator saling melengkapi.
-#         """,)
-#     for ticker in tickers:
-#         st.markdown(f"### {ticker}")
-#         df_eval = get_data_from_db(ticker, interval)
-#         df_eval = df_eval.loc[start_date:end_date]
-#         if not df_eval.empty:
-#             df_combo_result = evaluate_indicator_combinations(ticker, df_eval, params, interval, money)
-#             st.dataframe(df_combo_result, use_container_width=True)
-
-
-# with tab5:
-#     st.subheader("Data Realtime (Marketstack)")
-#     st.markdown("""
-#         Sistem menganalisis saham menggunakan data terkini dari pasar.
-#         - Menunjukkan sinyal saat ini berdasarkan indikator yang Anda pilih.
-#         - Akurasi realtime juga dihitung berdasarkan harga saat ini.
-#         """,)
-#     for ticker in tickers:
-#         st.markdown(f"### {ticker}")
-#         realtime_ticker = ticker.replace(".JK", ".XIDX")
-#         df_rt = get_realtime_data_from_db(realtime_ticker)
-
-#         if df_rt is not None and not df_rt.empty:
-#             df_rt = compute_indicators(df_rt, indicators, params)
-#             df_rt['Final_Signal'] = compute_final_signal(df_rt, indicators)
-
-#             result_rt = evaluate_strategy_accuracy(df_rt)
-#             if result_rt:
-#                 display_accuracy_result(result_rt, "Akurasi Realtime")
-
-#             plot_indicators(df_rt, indicators)
-#             display_analysis_table_with_summary(df_rt, indicators, signal_filter)
-#             show_signal_recap(df_rt, indicators)
-#         else:
-#             st.warning("Tidak ada data realtime ditemukan untuk ticker ini.")
-#     else:
-#         st.warning("Pilih ticker terlebih dahulu.")

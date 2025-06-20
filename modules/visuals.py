@@ -207,13 +207,19 @@ def plot_signal_pairs(df, signal_pairs):
         row_heights=[0.7, 0.3]
     )
 
-    fig.add_trace(go.Scatter(
+    # fig.add_trace(go.Scatter(
+    fig.add_trace(go.Candlestick(
         x=df.index,
-        y=df['Close'],
-        mode='lines',
-        name='Harga Close',
-        # line=dict(color='lightgray')))
-        line=dict(color='lightgray')), row=1, col=1)
+        # y=df['Close'],
+        # mode='lines',
+        # name='Harga Close',
+        # # line=dict(color='lightgray')))
+        # line=dict(color='lightgray')), row=1, col=1)
+        open=df['Open'],
+        high=df['High'],
+        low=df['Low'],
+        close=df['Close'],
+        name='Candlestick'), row=1, col=1)
 
     for i, row in signal_pairs.iterrows():
         fig.add_trace(go.Scatter(
@@ -254,7 +260,9 @@ def plot_signal_pairs(df, signal_pairs):
         height=600,
         hovermode='x unified',
         margin=dict(l=20, r=20, t=40, b=40),
-        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='center', x=0.5)
+        # legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='center', x=0.5)
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='center', x=0.5),
+        xaxis=dict(rangeslider=dict(visible=False))
     )
     fig.update_yaxes(title_text='Harga', row=1, col=1)
     if 'Volume' in df.columns:

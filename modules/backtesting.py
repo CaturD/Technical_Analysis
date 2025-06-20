@@ -247,8 +247,11 @@ def evaluate_signal_pairs(df, signal_series):
             })
             holding = False  # Ini penting: hentikan posisi setelah Sell
 
-    return pd.DataFrame(pairs).sort_values(by='Profit', ascending=False).reset_index(drop=True)
-
+    # return pd.DataFrame(pairs).sort_values(by='Profit', ascending=False).reset_index(drop=True)
+    df_pairs = pd.DataFrame(pairs)
+    if df_pairs.empty:
+        return df_pairs
+    return df_pairs.sort_values(by='Profit', ascending=False).reset_index(drop=True)
 
 # Evaluasi akurasi tiap indikator satu per satu
 def evaluate_individual_indicators(ticker, df, params, interval, money):
