@@ -3,13 +3,13 @@ import pandas as pd
 from datetime import datetime
 import plotly.graph_objects as go
 from modules.database import get_ticker_list, get_data_from_db
-from modules.evaluation_log import get_all_accuracy_logs
+# from modules.evaluation_log import get_all_accuracy_logs
 from modules.indicators import compute_indicators
 from modules.visuals import plot_indicators, plot_signal_pairs
 from modules.backtesting import show_indicator_explanation
 from modules.next_step import generate_next_step_recommendation
 from modules.evaluation_log import get_top_strategies_by_profit
-from modules.evaluate_best_strategy import evaluate_strategies_combined
+# from modules.evaluate_best_strategy import evaluate_strategies_combined
 from modules.analysis import (
     compute_final_signal, display_analysis_table_with_summary, save_analysis_to_json_db,
     fetch_saved_titles, load_analysis_by_title, show_signal_recap, evaluate_strategy_accuracy
@@ -52,14 +52,18 @@ Dengan fitur analisis dan backtesting untuk:
 """)
 
 # Load data
-df_logs = get_all_accuracy_logs()
-if not df_logs.empty and 'accuracy' in df_logs.columns:
-    df_logs = get_top_strategies_by_profit(20)
+# df_logs = get_all_accuracy_logs()
+# if not df_logs.empty and 'accuracy' in df_logs.columns:
+#     df_logs = get_top_strategies_by_profit(20)
+df_logs = get_top_strategies_by_profit(20)
+if not df_logs.empty and 'profit' in df_logs.columns:
     df_sorted = df_logs.sort_values(by='profit', ascending=False).reset_index(drop=True)
-else:
+# else:
+elif df_logs.empty:
     st.warning("Belum ada data strategi yang tersimpan atau tabel belum tersedia.")
     df_sorted = pd.DataFrame()
-
+else:
+    df_sorted = df_logs.reset_index(drop=True)
 
 st.markdown("#### Top Strategi Saham Berdasarkan Profit")
 
@@ -123,19 +127,28 @@ with cols[1]:
     if not df_show.empty:
         card_cols = st.columns(len(df_show))
         for i, (_, row) in enumerate(df_show.iterrows()):
-            color = "green" if row['profit'] >= 0 else "red"
             with card_cols[i]:
-                st.markdown(f"""
+                if {'start_date', 'end_date'}.issubset(df_show.columns) and \
+                        pd.notnull(row.get('start_date')) and pd.notnull(row.get('end_date')):
+                    periode = f"{row['start_date']} - {row['end_date']}"
+                else:
+                    periode = '-'
+
+                color = 'green' if row.get('profit_percentage', 0) >= 0 else 'red'
+
+                st.markdown(
+                    f"""
                     <div style='padding: 10px; border-radius: 10px; background-color: #f9f9f9; border: 1px solid #ddd; text-align:center;'>
-                        <strong>{row['ticker']}</strong><br>
-                        <span style='color: {color}; font-size: 18px; font-weight: bold;'>Rp{row['profit']:,.0f}</span><br>
+                        <strong style='color:{color};'>{row['ticker']}</strong><br>
                         <span style='font-size: 13px;'>Profit: {row['profit_percentage']:.2f}%</span><br>
-                        <span style='font-size: 13px;'>Akurasi: {row['accuracy']*100:.2f}%</span>
+                        <span style='font-size: 13px;'>Akurasi: {row['accuracy']*100:.2f}%</span><br>
+                        <span style='font-size: 13px;'>Periode: {periode}</span>
                     </div>
-                """, unsafe_allow_html=True)
+                    """,
+                    unsafe_allow_html=True,
+                )
     else:
         st.info("Tidak ada strategi yang dapat ditampilkan.")
-
 
 # Right button
 with cols[2]:
@@ -427,7 +440,11 @@ with tab4:
             df_result, final_value, gain, gain_pct, accuracy = run_backtesting_profit(
             df_bt, money, signal_series, key_prefix=f"{ticker}_{interval}_tab4"
             )
-            save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, accuracy)
+            # save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, accuracy)
+            save_backtesting_to_db(
+                ticker, money, final_value, gain, gain_pct, accuracy,
+                start_date, end_date
+            )
             plot_accuracy_history(ticker)
 
 with tab5:
@@ -437,7 +454,7 @@ with tab5:
         - Disusun berdasarkan akurasi tertinggi.
         - Gunakan data ini untuk memilih strategi paling konsisten.
         """,)
-    from modules.evaluation_log import get_all_accuracy_logs
+    # from modules.evaluation_log import get_all_accuracy_logs
     all_logs_df = get_all_accuracy_logs()
     if not all_logs_df.empty:
         st.dataframe(all_logs_df, use_container_width=True)

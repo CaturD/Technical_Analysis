@@ -121,13 +121,33 @@ def get_all_accuracy_logs():
 def get_top_strategies_by_profit(limit=10):
     try:
         conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
-        query = """
-            SELECT ticker, profit, profit_percentage, accuracy, timestamp
-            FROM data_backtesting
-            ORDER BY profit DESC
-            LIMIT %s
-        """
-        return pd.read_sql(query, conn, params=(limit,))
+        cursor = conn.cursor()
+
+        # Pastikan tabel dan kolom baru tersedia
+        from modules.backtesting import _ensure_backtesting_table
+        _ensure_backtesting_table(cursor)
+        conn.commit()
+        cursor.close()
+
+        cursor = conn.cursor()
+        cursor.execute("SHOW COLUMNS FROM data_backtesting LIKE 'start_date'")
+        has_start = cursor.fetchone() is not None
+        cursor.execute("SHOW COLUMNS FROM data_backtesting LIKE 'end_date'")
+        has_end = cursor.fetchone() is not None
+        cursor.close()
+
+        columns = ["ticker", "profit", "profit_percentage", "accuracy"]
+        if has_start:
+            columns.append("start_date")
+        if has_end:
+            columns.append("end_date")
+        columns.append("timestamp")
+        query = f"SELECT {', '.join(columns)} FROM data_backtesting ORDER BY profit DESC"
+        df = pd.read_sql(query, conn)
+        # Ambil hanya entri dengan profit terbesar untuk setiap ticker
+        df = df.sort_values(by="profit", ascending=False).drop_duplicates("ticker")
+        return df.head(limit)
+    
     except Exception as e:
         print(f"Gagal mengambil data strategi berdasarkan profit: {e}")
         return pd.DataFrame()

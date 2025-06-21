@@ -11,6 +11,36 @@ from modules.custom_strategies import apply_custom_strategy
 
 engine = create_engine('mysql+mysqlconnector://root:@localhost/indonesia_stock')
 
+def _ensure_backtesting_table(cursor):
+    """Create table and new columns if they don't exist."""
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS data_backtesting (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            ticker VARCHAR(10),
+            money DOUBLE,
+            final_money DOUBLE,
+            profit DOUBLE,
+            profit_percentage DOUBLE,
+            accuracy DOUBLE,
+            start_date DATE,
+            end_date DATE,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    cursor.execute("SHOW COLUMNS FROM data_backtesting LIKE 'start_date'")
+    if cursor.fetchone() is None:
+        cursor.execute("ALTER TABLE data_backtesting ADD COLUMN start_date DATE")
+    cursor.execute("SHOW COLUMNS FROM data_backtesting LIKE 'end_date'")
+    if cursor.fetchone() is None:
+        cursor.execute("ALTER TABLE data_backtesting ADD COLUMN end_date DATE")
+    # Commit changes to ensure the schema updates are saved
+    try:
+        cursor.connection.commit()
+    except Exception:
+        pass
+
 def fetch_backtesting_data(ticker, start_date, end_date):
     query = text("""
         SELECT hasil_analisis FROM analisis_indikator
@@ -159,29 +189,28 @@ def show_indicator_explanation(indicators):
 
 
 # Simpan hasil backtesting ke database
-def save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, accuracy):
+# def save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, accuracy):
+def save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, accuracy,
+                           start_date, end_date):
     try:
         conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
         cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS data_backtesting (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                ticker VARCHAR(10), money DOUBLE, final_money DOUBLE,
-                profit DOUBLE, profit_percentage DOUBLE, accuracy DOUBLE,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+        _ensure_backtesting_table(cursor)
         cursor.execute("""
             SELECT COUNT(*) FROM data_backtesting
-            WHERE ticker = %s AND money = %s AND final_money = %s AND profit_percentage = %s
-        """, (ticker, money, final_value, gain_pct))
+            WHERE ticker = %s AND money = %s AND final_money = %s AND
+                  profit_percentage = %s AND start_date = %s AND end_date = %s
+        """, (ticker, money, final_value, gain_pct, start_date, end_date))
         if cursor.fetchone()[0] > 0:
             st.warning("Hasil backtesting ini sudah pernah disimpan.")
             return
         cursor.execute("""
-            INSERT INTO data_backtesting (ticker, money, final_money, profit, profit_percentage, accuracy)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (ticker, money, final_value, gain, gain_pct, accuracy))
+            INSERT INTO data_backtesting
+            (ticker, money, final_money, profit, profit_percentage, accuracy,
+             start_date, end_date)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (ticker, money, final_value, gain, gain_pct, accuracy,
+                start_date, end_date))
         conn.commit()
         st.success("Hasil backtesting berhasil disimpan ke database.")
     except mysql.connector.Error as err:
@@ -247,7 +276,6 @@ def evaluate_signal_pairs(df, signal_series):
             })
             holding = False  # Ini penting: hentikan posisi setelah Sell
 
-    # return pd.DataFrame(pairs).sort_values(by='Profit', ascending=False).reset_index(drop=True)
     df_pairs = pd.DataFrame(pairs)
     if df_pairs.empty:
         return df_pairs
@@ -275,260 +303,3 @@ def evaluate_individual_indicators(ticker, df, params, interval, money):
         except Exception as e:
             results.append({'Indikator': ind, 'Akurasi': None, 'Keuntungan (Rp)': None, 'Keuntungan (%)': None, 'Error': str(e)})
     return pd.DataFrame(results).sort_values(by='Keuntungan (%)', ascending=False).reset_index(drop=True)
-
-# def apply_custom_strategy(df, strategy):
-#     import pandas as pd
-
-#     if strategy == "Final Signal":
-#         return df['Final_Signal']
-
-#     elif strategy == "Buy & Hold":
-#         signals = ['Hold'] * len(df)
-#         if len(df) > 1:
-#             signals[0] = 'Buy'
-#             signals[-1] = 'Sell'
-#         return pd.Series(signals, index=df.index)
-
-#     # === STRATEGI BERDASARKAN MASING-MASING INDIKATOR ===
-#     elif strategy == "MA Only":
-#         return df.get('Signal_MA', pd.Series(['Hold'] * len(df), index=df.index))
-
-#     elif strategy == "MACD Only":
-#         return df.get('Signal_MACD', pd.Series(['Hold'] * len(df), index=df.index))
-
-#     elif strategy == "Ichimoku Only":
-#         return df.get('Signal_Ichimoku', pd.Series(['Hold'] * len(df), index=df.index))
-
-#     elif strategy == "SO Only":
-#         return df.get('Signal_SO', pd.Series(['Hold'] * len(df), index=df.index))
-
-#     elif strategy == "Volume Only":
-#         vol_sig = df.get('Signal_Volume', pd.Series(['Hold'] * len(df), index=df.index))
-#         return vol_sig.replace({
-#             'High Volume': 'Buy',
-#             'Low Volume': 'Sell'
-#         })
-
-#     # === STRATEGI KOMBINASI LOGIKA ===
-#     elif strategy == "Ichimoku + MA Only":
-#         result = []
-#         for i in range(len(df)):
-#             ich = df.iloc[i].get('Signal_Ichimoku')
-#             ma = df.iloc[i].get('Signal_MA')
-#             result.append(ich if ich == ma and ich in ['Buy', 'Sell'] else 'Hold')
-#         return pd.Series(result, index=df.index)
-
-#     elif strategy == "All Agree":
-#         result = []
-#         for i in range(len(df)):
-#             signals = [
-#                 df.iloc[i].get('Signal_MA'),
-#                 df.iloc[i].get('Signal_MACD'),
-#                 df.iloc[i].get('Signal_Ichimoku'),
-#                 df.iloc[i].get('Signal_SO'),
-#                 df.iloc[i].get('Signal_Volume')
-#             ]
-#             if all(s == 'Buy' for s in signals):
-#                 result.append('Buy')
-#             elif all(s == 'Sell' for s in signals):
-#                 result.append('Sell')
-#             else:
-#                 result.append('Hold')
-#         return pd.Series(result, index=df.index)
-
-#     elif strategy == "3 of 5 Majority":
-#         result = []
-#         for i in range(len(df)):
-#             signals = [
-#                 df.iloc[i].get('Signal_MA'),
-#                 df.iloc[i].get('Signal_MACD'),
-#                 df.iloc[i].get('Signal_Ichimoku'),
-#                 df.iloc[i].get('Signal_SO'),
-#                 df.iloc[i].get('Signal_Volume')
-#             ]
-#             buy_count = signals.count('Buy')
-#             sell_count = signals.count('Sell')
-#             result.append('Buy' if buy_count >= 3 else 'Sell' if sell_count >= 3 else 'Hold')
-#         return pd.Series(result, index=df.index)
-
-#     elif strategy == "MACD + Volume Confirm":
-#         result = []
-#         for i in range(len(df)):
-#             macd = df.iloc[i].get('Signal_MACD')
-#             vol = df.iloc[i].get('Signal_Volume')
-#             if macd == 'Buy' and vol == 'High Volume':
-#                 result.append('Buy')
-#             elif macd == 'Sell' and vol == 'Low Volume':
-#                 result.append('Sell')
-#             else:
-#                 result.append('Hold')
-#         return pd.Series(result, index=df.index)
-
-#     elif strategy == "Ichimoku + MA Trend":
-#         result = []
-#         for i in range(len(df)):
-#             ich = df.iloc[i].get('Signal_Ichimoku')
-#             ma5 = df.iloc[i].get('MA5')
-#             if ich == 'Buy' and ma5 > ma20:
-#             if ich == 'Buy' and ma20 > ma50:
-#                 result.append('Buy')
-#             elif ich == 'Sell' and ma5 < ma20:
-#                 result.append('Sell')
-#             else:
-#                 result.append('Hold')
-#         return pd.Series(result, index=df.index)
-
-#     elif strategy == "SO + MACD":
-#         result = []
-#         for i in range(len(df)):
-#             so = df.iloc[i].get('Signal_SO')
-#             macd = df.iloc[i].get('Signal_MACD')
-#             if so == 'Buy' and macd == 'Buy':
-#                 result.append('Buy')
-#             elif so == 'Sell' and macd == 'Sell':
-#                 result.append('Sell')
-#             else:
-#                 result.append('Hold')
-#         return pd.Series(result, index=df.index)
-
-#     else:
-#         return pd.Series(['Hold'] * len(df), index=df.index)
-
-
-
-# def run_backtesting_analysis(df, money):
-#     st.subheader("Total Sinyal")
-#     if 'Final_Signal' not in df.columns:
-#         st.warning("Data tidak memiliki kolom Final_Signal.")
-#         return
-
-#     signal_counts = df['Final_Signal'].value_counts().to_frame().reset_index()
-#     signal_counts.columns = ['Sinyal', 'Jumlah']
-#     st.dataframe(signal_counts, use_container_width=True)
-
-#     # Ekspor ke Excel
-#     buffer = BytesIO()
-#     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-#         signal_counts.to_excel(writer, index=False, sheet_name='Sinyal')
-#     st.download_button(
-#         label="⬇ Unduh Rekap Sinyal (Excel)",
-#         data=buffer.getvalue(),
-#         file_name="rekap.xlsx",
-#         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-#         key=f"download_rekap_{ticker}_{interval}"
-#     )
-
-
-# def run_backtesting_profit(df, money, signal_series):
-#     st.subheader("Profit Trading")
-#     cash = money
-#     stock = 0
-#     history = []
-#     predictions = []
-#     actuals = []
-
-#     df['Future_Close'] = df['Close'].shift(-1)
-
-#     for date in df.index[:-1]:
-#         # Ambil satu nilai aman meskipun ada index duplikat
-#         signal = signal_series.loc[date]
-#         if isinstance(signal, pd.Series):
-#             signal = signal.iloc[0]
-
-#         price = df.loc[date, 'Close']
-#         future_price = df.loc[date, 'Future_Close']
-#         if isinstance(price, pd.Series):
-#             price = price.iloc[0]
-#         if isinstance(future_price, pd.Series):
-#             future_price = future_price.iloc[0]
-
-#         # Hitung tren aktual
-#         actual_trend = 'Buy' if future_price > price else 'Sell'
-#         predictions.append(signal)
-#         actuals.append(actual_trend)
-
-#         # Simulasi trading
-#         if signal == 'Buy' and cash >= price:
-#             qty = cash // price
-#             stock += qty
-#             cash -= qty * price
-#         elif signal == 'Sell' and stock > 0:
-#             cash += stock * price
-#             stock = 0
-
-#         value = cash + stock * price
-#         profit = value - money
-#         history.append([date.strftime("%Y-%m-%d"), signal, f"{value:,.0f}", f"{profit:,.0f}"])
-
-#     # Hitung hasil akhir
-#     final_price = df['Close'].iloc[-1]
-#     final_value = cash + stock * final_price
-#     gain = final_value - money
-#     gain_pct = (gain / money) * 100
-
-#     st.write(f"Nilai akhir portofolio: **Rp{final_value:,.0f}**")
-#     st.write(f"Keuntungan: **Rp{gain:,.0f} ({gain_pct:.2f}%)**")
-
-#     df_result = pd.DataFrame(history, columns=['Tanggal', 'Sinyal', 'Nilai Portofolio', 'Profit'])
-#     st.dataframe(df_result, use_container_width=True)
-
-#     # Hitung akurasi
-#     accuracy = accuracy_score(actuals, predictions)
-#     st.info(f"Akurasi sinyal (berdasarkan harga besok): **{accuracy * 100:.2f}%**")
-
-#     return df_result, final_value, gain, gain_pct, accuracy
-
-
-# def evaluate_signal_pairs(df, signal_series):
-#     pairs = []
-#     holding = False
-#     buy_price = 0
-#     buy_date = None
-
-#     # Pastikan urutan tanggal benar
-#     df = df.sort_index()
-#     signal_series = signal_series.sort_index()
-
-#     for date in df.index:
-#         signal = signal_series.loc[date]
-#         if isinstance(signal, pd.Series):
-#             signal = signal.iloc[0]
-#         price = df.loc[date, 'Close']
-#         if isinstance(price, pd.Series):
-#             price = price.iloc[0]
-
-#         if signal == 'Buy' and not holding:
-#             holding = True
-#             buy_price = price
-#             buy_date = date
-
-#         elif signal == 'Sell' and holding:
-#             sell_price = price
-#             sell_date = date
-#             profit = sell_price - buy_price
-#             pairs.append({
-#                 'Buy Date': buy_date.strftime('%Y-%m-%d'),
-#                 'Buy Price': buy_price,
-#                 'Sell Date': sell_date.strftime('%Y-%m-%d'),
-#                 'Sell Price': sell_price,
-#                 'Profit': profit
-#             })
-#             holding = False
-
-#     if not pairs:
-#         return pd.DataFrame(columns=['Buy Date', 'Buy Price', 'Sell Date', 'Sell Price', 'Profit'])
-
-#     df_pairs = pd.DataFrame(pairs)
-#     return df_pairs.sort_values(by='Profit', ascending=False).reset_index(drop=True)
-
-
-
-# # save ke sql dan excel
-# from io import BytesIO
-
-# def export_evaluation_to_excel(df_result, df_pairs, ticker, interval):
-#     buffer = BytesIO()
-#     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-#         df_result.to_excel(writer, sheet_name='Backtesting Summary', index=False)
-#         df_pairs.to_excel(writer, sheet_name='Signal Pairs', index=False)
-#     return buffer.getvalue()
