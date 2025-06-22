@@ -216,7 +216,7 @@ with st.sidebar.expander("Setting Parameter Indikator"):
 
 # Tab Navigasi
 # tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab_panduan = st.tabs([
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab_exp, tab_panduan = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab_panduan = st.tabs([
     "Analisis",
     "Analisis Tersimpan",
     "Backtesting Analisis",
@@ -224,7 +224,6 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab_exp, tab_panduan = st.tabs([
     "Semua Akurasi Strategi",
     "Evaluasi Gabungan",
     "Evaluasi Strategi Terbaik",
-    "Eksperimen Buy/Sell",
     # "Winrate Evaluasi Strategi",
     "Panduan Dashboard"
 ])
@@ -402,7 +401,32 @@ with tab3:
                 margin=dict(l=20, r=20, t=40, b=40)
             )
             st.plotly_chart(fig_profit, use_container_width=True)
-            
+
+            st.subheader("Pasangan All Sinyal")
+            st.markdown(
+                """
+                Tab ini menguji berbagai kombinasi antara urutan sinyal **Buy** ke-n
+                dengan beberapa sinyal **Sell** setelahnya. Hasil profit setiap
+                kombinasi ditampilkan pada tabel berikut.
+                """
+            )
+            df_combo = experiment_buy_sell_combinations(df_bt, signal_series)
+            if df_combo.empty:
+                st.info("Tidak ada kombinasi pasangan all buy/sell yang valid.")
+            else:
+                st.dataframe(df_combo, use_container_width=True)
+
+                if 'Hold Days' in df_combo.columns:
+                    up_days = df_combo[df_combo['Trend'] == 'Uptrend']['Hold Days'].mean()
+                    down_days = df_combo[df_combo['Trend'] == 'Downtrend']['Hold Days'].mean()
+                    # col1, col2 = st.columns(2)
+                    # if not pd.isna(up_days):
+                    #     col1.metric("Rata-rata Hold Uptrend", f"{up_days:.1f} hari")
+                    # if not pd.isna(down_days):
+                    #     col2.metric("Rata-rata Hold Downtrend", f"{down_days:.1f} hari")
+
+                plot_signal_pairs(df_bt, df_combo, show_lines=False)
+
         st.markdown("---")
         st.subheader("Rekomendasi Langkah Selanjutnya")
         try:
@@ -586,41 +610,41 @@ with tab7:
                 "Data tidak tersedia untuk ticker dan interval yang dipilih."
             )
 
-with tab_exp:
-    st.subheader("Eksperimen Buy/Sell")
-    st.markdown(
-        """
-        Tab ini menguji berbagai kombinasi antara urutan sinyal **Buy** ke-n
-        dengan beberapa sinyal **Sell** setelahnya. Hasil profit setiap
-        kombinasi ditampilkan pada tabel berikut.
-        """
-    )
-    for ticker in tickers:
-        st.markdown(f"### {ticker}")
-        df_bt = fetch_backtesting_data(ticker, start_date, end_date)
-        if df_bt.empty:
-            st.warning("Data tidak tersedia.")
-            continue
-        df_bt = compute_indicators(df_bt, indicators, params)
-        df_bt['Final_Signal'] = compute_final_signal(df_bt, indicators)
-        signal_series = df_bt['Final_Signal']
-        df_combo = experiment_buy_sell_combinations(df_bt, signal_series)
-        if df_combo.empty:
-            st.info("Tidak ada kombinasi buy/sell yang valid.")
-        else:
-            st.dataframe(df_combo, use_container_width=True)
+# with tab_exp:
+#     st.subheader("Eksperimen Buy/Sell")
+#     st.markdown(
+#         """
+#         Tab ini menguji berbagai kombinasi antara urutan sinyal **Buy** ke-n
+#         dengan beberapa sinyal **Sell** setelahnya. Hasil profit setiap
+#         kombinasi ditampilkan pada tabel berikut.
+#         """
+#     )
+#     for ticker in tickers:
+#         st.markdown(f"### {ticker}")
+#         df_bt = fetch_backtesting_data(ticker, start_date, end_date)
+#         if df_bt.empty:
+#             st.warning("Data tidak tersedia.")
+#             continue
+#         df_bt = compute_indicators(df_bt, indicators, params)
+#         df_bt['Final_Signal'] = compute_final_signal(df_bt, indicators)
+#         signal_series = df_bt['Final_Signal']
+#         df_combo = experiment_buy_sell_combinations(df_bt, signal_series)
+#         if df_combo.empty:
+#             st.info("Tidak ada kombinasi buy/sell yang valid.")
+#         else:
+#             st.dataframe(df_combo, use_container_width=True)
 
-            if 'Hold Days' in df_combo.columns:
-                up_days = df_combo[df_combo['Trend'] == 'Uptrend']['Hold Days'].mean()
-                down_days = df_combo[df_combo['Trend'] == 'Downtrend']['Hold Days'].mean()
-                col1, col2 = st.columns(2)
-                if not pd.isna(up_days):
-                    col1.metric("Rata-rata Hold Uptrend", f"{up_days:.1f} hari")
-                if not pd.isna(down_days):
-                    col2.metric("Rata-rata Hold Downtrend", f"{down_days:.1f} hari")
+#             if 'Hold Days' in df_combo.columns:
+#                 up_days = df_combo[df_combo['Trend'] == 'Uptrend']['Hold Days'].mean()
+#                 down_days = df_combo[df_combo['Trend'] == 'Downtrend']['Hold Days'].mean()
+#                 col1, col2 = st.columns(2)
+#                 if not pd.isna(up_days):
+#                     col1.metric("Rata-rata Hold Uptrend", f"{up_days:.1f} hari")
+#                 if not pd.isna(down_days):
+#                     col2.metric("Rata-rata Hold Downtrend", f"{down_days:.1f} hari")
 
-            # Hide dashed connectors for the experiment tab
-            plot_signal_pairs(df_bt, df_combo, show_lines=False)
+#             # Hide dashed connectors for the experiment tab
+#             plot_signal_pairs(df_bt, df_combo, show_lines=False)
 
 with tab_panduan:
     st.subheader("Panduan Penggunaan Dashboard")

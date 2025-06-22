@@ -200,7 +200,7 @@ def plot_signal_markers(df, signal_column='Final_Signal'):
 # def plot_signal_pairs(df, signal_pairs):
 def plot_signal_pairs(df, signal_pairs, show_lines=True):
     """Plot buy/sell signal pairs using candlesticks and optional connectors."""
-    st.subheader("Visualisasi Pasangan Sinyal Buy–Sell")
+    st.subheader("Visualisasi Pasangan Sinyal")
 
     fig = make_subplots(
         rows=2, cols=1,
