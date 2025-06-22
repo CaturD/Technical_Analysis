@@ -266,13 +266,16 @@ def evaluate_signal_pairs(df, signal_series):
             sell_date = date
             profit = sell_price - buy_price
             profit_pct = ((sell_price - buy_price) / buy_price) * 100
+            hold_days = (sell_date - buy_date).days
             pairs.append({
                 'Buy Date': buy_date.strftime('%Y-%m-%d'),
                 'Buy Price': round(buy_price, 2),
                 'Sell Date': sell_date.strftime('%Y-%m-%d'),
                 'Sell Price': round(sell_price, 2),
                 'Profit': round(profit, 2),
-                'Profit (%)': round(profit_pct, 4)
+                'Profit (%)': round(profit_pct, 4),
+                'Hold Days': hold_days,
+                'Trend': 'Uptrend' if profit > 0 else 'Downtrend'
             })
             holding = False  # Ini penting: hentikan posisi setelah Sell
 
@@ -280,6 +283,36 @@ def evaluate_signal_pairs(df, signal_series):
     if df_pairs.empty:
         return df_pairs
     return df_pairs.sort_values(by='Profit', ascending=False).reset_index(drop=True)
+
+def experiment_buy_sell_combinations(df, signal_series):
+    """Generate profit results pairing each Buy with multiple subsequent Sells."""
+    df = df.sort_index()
+    signal_series = signal_series.sort_index()
+    buy_dates = [d for d in df.index if signal_series.loc[d] == 'Buy']
+    sell_dates = [d for d in df.index if signal_series.loc[d] == 'Sell']
+
+    combos = []
+    for i, buy_date in enumerate(buy_dates, start=1):
+        buy_price = df.loc[buy_date, 'Close']
+        for j, sell_date in enumerate([s for s in sell_dates if s > buy_date], start=1):
+            sell_price = df.loc[sell_date, 'Close']
+            profit = sell_price - buy_price
+            profit_pct = ((sell_price - buy_price) / buy_price) * 100
+            hold_days = (sell_date - buy_date).days
+            combos.append({
+                'Buy': i,
+                'Sell After Buy': j,
+                'Buy Date': buy_date.strftime('%Y-%m-%d'),
+                'Sell Date': sell_date.strftime('%Y-%m-%d'),
+                'Buy Price': round(buy_price, 2),
+                'Sell Price': round(sell_price, 2),
+                'Hold Days': hold_days,
+                'Profit': round(profit, 2),
+                'Profit (%)': round(profit_pct, 4),
+                'Trend': 'Uptrend' if profit > 0 else 'Downtrend',
+            })
+
+    return pd.DataFrame(combos)
 
 # Evaluasi akurasi tiap indikator satu per satu
 def evaluate_individual_indicators(ticker, df, params, interval, money):

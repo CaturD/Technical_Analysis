@@ -197,7 +197,9 @@ def plot_signal_markers(df, signal_column='Final_Signal'):
 
     st.plotly_chart(fig, use_container_width=True)
 
-def plot_signal_pairs(df, signal_pairs):
+# def plot_signal_pairs(df, signal_pairs):
+def plot_signal_pairs(df, signal_pairs, show_lines=True):
+    """Plot buy/sell signal pairs using candlesticks and optional connectors."""
     st.subheader("Visualisasi Pasangan Sinyal Buy–Sell")
 
     fig = make_subplots(
@@ -210,11 +212,6 @@ def plot_signal_pairs(df, signal_pairs):
     # fig.add_trace(go.Scatter(
     fig.add_trace(go.Candlestick(
         x=df.index,
-        # y=df['Close'],
-        # mode='lines',
-        # name='Harga Close',
-        # # line=dict(color='lightgray')))
-        # line=dict(color='lightgray')), row=1, col=1)
         open=df['Open'],
         high=df['High'],
         low=df['Low'],
@@ -232,11 +229,19 @@ def plot_signal_pairs(df, signal_pairs):
             marker=dict(symbol='triangle-down', color='red', size=10),
             name=f"Sell {i+1}", showlegend=(i == 0)))
 
-        fig.add_trace(go.Scatter(
-            x=[row['Buy Date'], row['Sell Date']],
-            y=[row['Buy Price'], row['Sell Price']],
-            mode='lines', line=dict(dash='dot', color='blue'), showlegend=False))
-        
+        # fig.add_trace(go.Scatter(
+        #     x=[row['Buy Date'], row['Sell Date']],
+        #     y=[row['Buy Price'], row['Sell Price']],
+        #     mode='lines', line=dict(dash='dot', color='blue'), showlegend=False))
+        if show_lines:
+            fig.add_trace(go.Scatter(
+                x=[row['Buy Date'], row['Sell Date']],
+                y=[row['Buy Price'], row['Sell Price']],
+                mode='lines',
+                line=dict(dash='dot', color='blue'),
+                showlegend=False
+            ))
+
     if 'Volume' in df.columns:
         fig.add_trace(
             go.Bar(
@@ -260,7 +265,6 @@ def plot_signal_pairs(df, signal_pairs):
         height=600,
         hovermode='x unified',
         margin=dict(l=20, r=20, t=40, b=40),
-        # legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='center', x=0.5)
         legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='center', x=0.5),
         xaxis=dict(rangeslider=dict(visible=False))
     )

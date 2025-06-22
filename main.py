@@ -17,7 +17,8 @@ from modules.analysis import (
 from modules.backtesting import (
     fetch_backtesting_data, run_backtesting_profit,
     save_backtesting_to_db, plot_accuracy_history, evaluate_signal_pairs, show_indicator_explanation,
-    evaluate_individual_indicators
+    # evaluate_individual_indicators
+    evaluate_individual_indicators, experiment_buy_sell_combinations
 )
 from modules.evaluation_log import (
     evaluate_indicator_combinations, get_all_accuracy_logs, save_accuracy_evaluation_to_db,
@@ -214,7 +215,8 @@ with st.sidebar.expander("Setting Parameter Indikator"):
     }
 
 # Tab Navigasi
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab_panduan = st.tabs([
+# tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab_panduan = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab_exp, tab_panduan = st.tabs([
     "Analisis",
     "Analisis Tersimpan",
     "Backtesting Analisis",
@@ -222,6 +224,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab_panduan = st.tabs([
     "Semua Akurasi Strategi",
     "Evaluasi Gabungan",
     "Evaluasi Strategi Terbaik",
+    "Eksperimen Buy/Sell",
     # "Winrate Evaluasi Strategi",
     "Panduan Dashboard"
 ])
@@ -366,13 +369,22 @@ with tab3:
             acc_pair = (num_profit / total) * 100
             st.metric("Akurasi Pasangan Sinyal", f"{acc_pair:.2f}%")
 
+        if not df_pairs.empty and 'Hold Days' in df_pairs.columns:
+            up_days = df_pairs[df_pairs['Trend'] == 'Uptrend']['Hold Days'].mean()
+            down_days = df_pairs[df_pairs['Trend'] == 'Downtrend']['Hold Days'].mean()
+            # if not pd.isna(up_days):
+            #     st.metric("Rata-rata Hold Uptrend", f"{up_days:.1f} hari")
+            # if not pd.isna(down_days):
+            #     st.metric("Rata-rata Hold Downtrend", f"{down_days:.1f} hari")
+
 
         st.subheader("Evaluasi Pasangan Sinyal")
         if df_pairs.empty:
             st.warning("Tidak ada pasangan sinyal valid ditemukan.")
         else:
             st.dataframe(df_pairs, use_container_width=True)
-            plot_signal_pairs(df_bt, df_pairs)
+            # plot_signal_pairs(df_bt, df_pairs)
+            plot_signal_pairs(df_bt, df_pairs, show_lines=True)
 
             st.subheader("Grafik Profit per Pasangan Sinyal")
             fig_profit = go.Figure()
@@ -573,6 +585,42 @@ with tab7:
             st.warning(
                 "Data tidak tersedia untuk ticker dan interval yang dipilih."
             )
+
+with tab_exp:
+    st.subheader("Eksperimen Buy/Sell")
+    st.markdown(
+        """
+        Tab ini menguji berbagai kombinasi antara urutan sinyal **Buy** ke-n
+        dengan beberapa sinyal **Sell** setelahnya. Hasil profit setiap
+        kombinasi ditampilkan pada tabel berikut.
+        """
+    )
+    for ticker in tickers:
+        st.markdown(f"### {ticker}")
+        df_bt = fetch_backtesting_data(ticker, start_date, end_date)
+        if df_bt.empty:
+            st.warning("Data tidak tersedia.")
+            continue
+        df_bt = compute_indicators(df_bt, indicators, params)
+        df_bt['Final_Signal'] = compute_final_signal(df_bt, indicators)
+        signal_series = df_bt['Final_Signal']
+        df_combo = experiment_buy_sell_combinations(df_bt, signal_series)
+        if df_combo.empty:
+            st.info("Tidak ada kombinasi buy/sell yang valid.")
+        else:
+            st.dataframe(df_combo, use_container_width=True)
+
+            if 'Hold Days' in df_combo.columns:
+                up_days = df_combo[df_combo['Trend'] == 'Uptrend']['Hold Days'].mean()
+                down_days = df_combo[df_combo['Trend'] == 'Downtrend']['Hold Days'].mean()
+                col1, col2 = st.columns(2)
+                if not pd.isna(up_days):
+                    col1.metric("Rata-rata Hold Uptrend", f"{up_days:.1f} hari")
+                if not pd.isna(down_days):
+                    col2.metric("Rata-rata Hold Downtrend", f"{down_days:.1f} hari")
+
+            # Hide dashed connectors for the experiment tab
+            plot_signal_pairs(df_bt, df_combo, show_lines=False)
 
 with tab_panduan:
     st.subheader("Panduan Penggunaan Dashboard")
