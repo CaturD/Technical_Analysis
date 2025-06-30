@@ -20,7 +20,7 @@ def generate_combination_results(ticker, df, indikator_list, params, interval, m
                 )
                 results.append({
                     'Kombinasi': ', '.join(combo),
-                    'Winrate': round(accuracy * 100, 2),
+                    'Win Rate': round(accuracy * 100, 2),
                     'Keuntungan (Rp)': round(gain),
                     'Keuntungan (%)': round(gain_pct, 2)
                 })

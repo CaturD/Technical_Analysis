@@ -152,7 +152,7 @@ def evaluate_strategy_accuracy(df):
     mask = df['Final_Signal'].isin(['Buy', 'Sell'])
     accuracy = accuracy_score(df.loc[mask, 'Final_Signal'], df.loc[mask, 'Actual_Signal'])
     result = {
-        "Win Rate": accuracy,
+        "winrate": accuracy,
         "total_signals": len(df),
         "correct_predictions": (df['Final_Signal'] == df['Actual_Signal']).sum(),
         "signal_distribution": df['Final_Signal'].value_counts().to_dict()

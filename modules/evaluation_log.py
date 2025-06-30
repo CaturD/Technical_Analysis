@@ -17,7 +17,7 @@ def save_accuracy_evaluation_to_db(ticker, interval, strategy, indicators_dict, 
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor()
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS strategy_accuracy_log (
+            CREATE TABLE IF NOT EXISTS strategy_winrate_log (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 ticker VARCHAR(20),
                 data_interval VARCHAR(20),
@@ -32,18 +32,18 @@ def save_accuracy_evaluation_to_db(ticker, interval, strategy, indicators_dict, 
         params_json = json.dumps(params_dict)
 
         cursor.execute("""
-            SELECT COUNT(*) FROM strategy_accuracy_log
+            SELECT COUNT(*) FROM strategy_winrate_log
             WHERE ticker = %s AND data_interval = %s AND strategy = %s AND indicators = %s AND parameters = %s
         """, (ticker, interval, strategy, indicators_used, params_json))
 
         if cursor.fetchone()[0] == 0:
             cursor.execute("""
-                INSERT INTO strategy_accuracy_log
+                INSERT INTO strategy_winrate_log
                 (ticker, data_interval, strategy, indicators, parameters, winrate)
                 VALUES (%s, %s, %s, %s, %s, %s)
             """, (ticker, interval, strategy, indicators_used, params_json, accuracy_value))
             conn.commit()
-            print("Data winrate disimpan.")
+            print("Data win rate disimpan.")
         else:
             print("Strategi yang sama sudah disimpan sebelumnya.")
     except Exception as e:
@@ -108,12 +108,12 @@ def get_all_accuracy_logs():
         conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
         query = """
             SELECT ticker, data_interval, strategy, indicators, winrate, timestamp
-            FROM strategy_accuracy_log
+            FROM strategy_winrate_log
             ORDER BY winrate DESC
         """
         return pd.read_sql(query, conn)
     except Exception as e:
-        print(f"Gagal mengambil log winrate: {e}")
+        print(f"Gagal mengambil log win rate: {e}")
         return pd.DataFrame()
     finally:
         if conn.is_connected(): conn.close()

@@ -30,7 +30,7 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
                 df_ind, money, signal_series, key_prefix=f"{ticker}_{ind}_single", enable_download=False)
             results.append({
                 "Indikator / Kombinasi": f"{ind} Only",
-                "Winrate (%)": round(accuracy * 100, 2),
+                "Win Rate (%)": round(accuracy * 100, 2),
                 "Profit (Rp)": round(gain, 2),
                 "Profit (%)": round(gain_pct, 2)
             })
@@ -50,7 +50,7 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
                     df_combo, money, signal_series, key_prefix=combo_key, enable_download=False)
                 results.append({
                     "Indikator / Kombinasi": f"Kombinasi: {', '.join(combo)}",
-                    "Winrate (%)": round(accuracy * 100, 2),
+                    "Win Rate (%)": round(accuracy * 100, 2),
                     "Profit (Rp)": round(gain, 2),
                     "Profit (%)": round(gain_pct, 2)
                 })
@@ -59,6 +59,8 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
 
     # Buat DataFrame hasil
     df_result = pd.DataFrame(results)
+    if "Winrate (%)" in df_result.columns:
+        df_result.rename(columns={"Winrate (%)": "Win Rate (%)"}, inplace=True)
     if 'Profit (Rp)' in df_result.columns:
         df_result = df_result.sort_values(by="Profit (Rp)", ascending=False).reset_index(drop=True)
     else:
@@ -91,7 +93,7 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
                 top_combo = df_filtered.loc[df_filtered['Profit (Rp)'].idxmax()]
                 st.success(f"Kombinasi terbaik: **{top_combo['Indikator / Kombinasi']}** "
                         f"(Profit: Rp{top_combo['Profit (Rp)']:,.1f} | "
-                        f"Winrate: {top_combo['Winrate (%)']:.2f}%)")
+                        f"Win Rate: {top_combo['Win Rate (%)']:.2f}%)")
     else:
         st.info("Tidak ada data 'Profit (%)' yang valid untuk ditampilkan dalam grafik.")
 

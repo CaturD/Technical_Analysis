@@ -136,7 +136,7 @@ def run_backtesting_profit(df, money, signal_series, key_prefix="default", enabl
         )
 
     accuracy = accuracy_score(actuals, predictions)
-    st.info(f"Winrate sinyal: **{accuracy * 100:.2f}%**")
+    st.info(f"Win Rate sinyal: **{accuracy * 100:.2f}%**")
 
     return df_result, final_value, gain, gain_pct, accuracy
 
@@ -228,14 +228,14 @@ def plot_accuracy_history(ticker):
         """, conn)
         conn.close()
         if df.empty:
-            st.warning("Belum ada data winrate disimpan untuk ticker ini.")
+            st.warning("Belum ada data win rate disimpan untuk ticker ini.")
             return
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=df['timestamp'], y=df['winrate'], mode='lines+markers', name='Winrate'))
-        fig.update_layout(title=f"Riwayat Winrate {ticker}", xaxis_title='Tanggal', yaxis_title='Winrate', yaxis_tickformat='.0%')
+        fig.add_trace(go.Scatter(x=df['timestamp'], y=df['winrate'], mode='lines+markers', name='Win Rate'))
+        fig.update_layout(title=f"Riwayat Win Rate {ticker}", xaxis_title='Tanggal', yaxis_title='Win Rate', yaxis_tickformat='.0%')
         st.plotly_chart(fig, use_container_width=True)
     except Exception as e:
-        st.error(f"Gagal menampilkan grafik winrate: {e}")
+        st.error(f"Gagal menampilkan grafik win rate: {e}")
 
 def evaluate_signal_pairs(df, signal_series):
     pairs = []
