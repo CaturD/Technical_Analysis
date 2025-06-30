@@ -24,7 +24,7 @@ def save_accuracy_evaluation_to_db(ticker, interval, strategy, indicators_dict, 
                 strategy VARCHAR(50),
                 indicators TEXT,
                 parameters JSON,
-                accuracy FLOAT,
+                winrate FLOAT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -39,11 +39,11 @@ def save_accuracy_evaluation_to_db(ticker, interval, strategy, indicators_dict, 
         if cursor.fetchone()[0] == 0:
             cursor.execute("""
                 INSERT INTO strategy_accuracy_log
-                (ticker, data_interval, strategy, indicators, parameters, accuracy)
+                (ticker, data_interval, strategy, indicators, parameters, winrate)
                 VALUES (%s, %s, %s, %s, %s, %s)
             """, (ticker, interval, strategy, indicators_used, params_json, accuracy_value))
             conn.commit()
-            print("Data akurasi disimpan.")
+            print("Data winrate disimpan.")
         else:
             print("Strategi yang sama sudah disimpan sebelumnya.")
     except Exception as e:
@@ -80,7 +80,7 @@ def evaluate_indicator_combinations(ticker, df, params, interval, money=1_000_00
 
                 results.append({
                     'Kombinasi': ', '.join(combo),
-                    'Akurasi': round(accuracy * 100, 2),
+                    'Winrate': round(accuracy * 100, 2),
                     'Keuntungan (Rp)': round(gain, 2),
                     'Keuntungan (%)': round(gain_pct, 2)
                 })
@@ -88,7 +88,7 @@ def evaluate_indicator_combinations(ticker, df, params, interval, money=1_000_00
             except Exception as e:
                 results.append({
                     'Kombinasi': ', '.join(combo),
-                    'Akurasi': None,
+                    'Winrate': None,
                     'Keuntungan (Rp)': None,
                     'Keuntungan (%)': None,
                     'Error': str(e)
@@ -96,7 +96,7 @@ def evaluate_indicator_combinations(ticker, df, params, interval, money=1_000_00
 
     df_result = pd.DataFrame(results)
 
-    for col in ['Kombinasi', 'Akurasi', 'Keuntungan (Rp)', 'Keuntungan (%)']:
+    for col in ['Kombinasi', 'Winrate', 'Keuntungan (Rp)', 'Keuntungan (%)']:
         if col not in df_result.columns:
             df_result[col] = None
 
@@ -107,13 +107,13 @@ def get_all_accuracy_logs():
     try:
         conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
         query = """
-            SELECT ticker, data_interval, strategy, indicators, accuracy, timestamp
+            SELECT ticker, data_interval, strategy, indicators, winrate, timestamp
             FROM strategy_accuracy_log
-            ORDER BY accuracy DESC
+            ORDER BY winrate DESC
         """
         return pd.read_sql(query, conn)
     except Exception as e:
-        print(f"Gagal mengambil log akurasi: {e}")
+        print(f"Gagal mengambil log winrate: {e}")
         return pd.DataFrame()
     finally:
         if conn.is_connected(): conn.close()
@@ -136,7 +136,7 @@ def get_top_strategies_by_profit(limit=10):
         has_end = cursor.fetchone() is not None
         cursor.close()
 
-        columns = ["ticker", "profit", "profit_percentage", "accuracy"]
+        columns = ["ticker", "profit", "profit_percentage", "winrate"]
         if has_start:
             columns.append("start_date")
         if has_end:

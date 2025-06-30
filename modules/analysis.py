@@ -56,12 +56,6 @@ def save_analysis_to_json_db(ticker, data, indicators):
     try:
         conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
         cursor = conn.cursor()
-        # cursor.execute("""
-        #     ALTER TABLE analisis_indikator
-        #     ADD COLUMN IF NOT EXISTS title VARCHAR(255),
-        #     ADD COLUMN IF NOT EXISTS datetime DATETIME,
-        #     ADD COLUMN IF NOT EXISTS indikator TEXT
-        # """)
         required_columns = {
             "title": "VARCHAR(255)",
             "datetime": "DATETIME",
@@ -158,142 +152,10 @@ def evaluate_strategy_accuracy(df):
     mask = df['Final_Signal'].isin(['Buy', 'Sell'])
     accuracy = accuracy_score(df.loc[mask, 'Final_Signal'], df.loc[mask, 'Actual_Signal'])
     result = {
-        "accuracy": accuracy,
+        "Win Rate": accuracy,
         "total_signals": len(df),
         "correct_predictions": (df['Final_Signal'] == df['Actual_Signal']).sum(),
         "signal_distribution": df['Final_Signal'].value_counts().to_dict()
     }
     return result
 
-
-# #EVALUASI GABUNG
-# # API Key Marketstack
-# MARKETSTACK_API_KEY = "5ffdc569c36a2679a97c3483add9e005"
-
-# # Daftar ticker saham
-# realtime_tickers = [
-#     "BBCA.XIDX"
-# ]
-
-# # # Simpan data realtime Marketstack ke MySQL, "BBRI.XIDX", "BYAN.XIDX", "BMRI.XIDX", "TLKM.XIDX", "ASII.XIDX",
-# #     "TPIA.XIDX", "BBNI.XIDX", "UNVR.XIDX", "HMSP.XIDX", "GOTO.XIDX", "AMRT.XIDX",
-# #     "ICBP.XIDX", "UNTR.XIDX", "MDKA.XIDX", "KLBF.XIDX", "ADRO.XIDX", "DCII.XIDX",
-# #     "CPIN.XIDX", "SMMA.XIDX"
-# def save_marketstack_data(ticker, data_json):
-#     try:
-#         conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
-#         cursor = conn.cursor()
-#         cursor.execute("""
-#             CREATE TABLE IF NOT EXISTS stock_data_realtime (
-#                 id INT AUTO_INCREMENT PRIMARY KEY,
-#                 ticker VARCHAR(20) UNIQUE,
-#                 data LONGTEXT
-#             )
-#         """)
-#         insert_query = """
-#             INSERT INTO stock_data_realtime (ticker, data)
-#             VALUES (%s, %s)
-#             ON DUPLICATE KEY UPDATE data = VALUES(data)
-#         """
-#         cleaned_data = json.dumps([{str(k): v for k, v in entry.items()} for entry in data_json], default=str)
-#         cursor.execute(insert_query, (ticker, cleaned_data))
-#         conn.commit()
-#         print(f"Data Marketstack {ticker} berhasil disimpan.")
-#     except Exception as e:
-#         print(f"Gagal menyimpan {ticker}: {e}")
-#     finally:
-#         if conn.is_connected():
-#             cursor.close()
-#             conn.close()
-
-# # Ambil data real-time dari Marketstack
-# def fetch_marketstack_realtime(ticker):
-#     url = "http://api.marketstack.com/v1/eod"
-#     params = {
-#         "access_key": MARKETSTACK_API_KEY,
-#         "symbols": ticker,
-#         "limit": 1
-#     }
-#     try:
-#         response = requests.get(url, params=params)
-#         response.raise_for_status()
-#         result = response.json()
-
-#         data = result.get("data", [])
-#         if not data:
-#             print(f"Tidak ada data untuk {ticker}. Respon: {result}")
-#             return None
-
-#         formatted_data = []
-#         for row in data:
-#             formatted_data.append({
-#                 "Date": row['date'],
-#                 "Open": row['open'],
-#                 "High": row['high'],
-#                 "Low": row['low'],
-#                 "Close": row['close'],
-#                 "Volume": row['volume'],
-#                 "Name": row['symbol']
-#             })
-
-#         return formatted_data
-
-#     except Exception as e:
-#         print(f"Gagal mengambil data {ticker}: {e}")
-#         return None
-
-# # Fungsi ambil satu ticker realtime (untuk dashboard)
-# def get_realtime_data_from_db(ticker):
-#     try:
-#         if not ticker:
-#             print("Ticker bernilai None")
-#             return pd.DataFrame()
-
-#         conn = mysql.connector.connect(
-#             host="localhost",
-#             user="root",
-#             password="",
-#             database="indonesia_stock"
-#         )
-#         cursor = conn.cursor(dictionary=True)
-#         query = "SELECT data FROM stock_data_realtime WHERE ticker = %s"
-#         cursor.execute(query, (ticker,))
-#         result = cursor.fetchone()
-
-#         print(f"[DEBUG] Query result for {ticker}: {result}")
-
-#         if result and result["data"]:
-#             try:
-#                 print("[DEBUG] Raw JSON data:", result["data"][:150])
-#                 data_json = json.loads(result["data"])
-#                 print("[DEBUG] JSON decoded successfully.")
-#                 df = pd.DataFrame(data_json)
-#                 if not df.empty:
-#                     df['Date'] = pd.to_datetime(df['Date'])
-#                     df.set_index('Date', inplace=True)
-#                     print(f"[DEBUG] Dataframe loaded with shape: {df.shape}")
-#                 return df
-#             except Exception as decode_error:
-#                 print(f"Gagal parsing JSON untuk {ticker}: {decode_error}")
-#                 return pd.DataFrame()
-#         else:
-#             print(f"Tidak ada data ditemukan untuk ticker: {ticker}")
-#             return pd.DataFrame()
-
-#     except Exception as e:
-#         print(f"Gagal membaca data realtime dari database: {e}")
-#         return pd.DataFrame()
-
-#     finally:
-#         if conn.is_connected():
-#             cursor.close()
-#             conn.close()
-
-# # Eksekusi utama Marketstack real-time
-# if __name__ == "__main__":
-#     for ticker in realtime_tickers:
-#         print(f"Mengambil data {ticker} dari Marketstack...")
-#         data = fetch_marketstack_realtime(ticker)
-#         if data:
-#             save_marketstack_data(ticker, data)
-#         time.sleep(5)  # Hindari rate limit

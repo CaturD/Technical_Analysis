@@ -22,7 +22,7 @@ def _ensure_backtesting_table(cursor):
             final_money DOUBLE,
             profit DOUBLE,
             profit_percentage DOUBLE,
-            accuracy DOUBLE,
+            winrate DOUBLE,
             start_date DATE,
             end_date DATE,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -136,7 +136,7 @@ def run_backtesting_profit(df, money, signal_series, key_prefix="default", enabl
         )
 
     accuracy = accuracy_score(actuals, predictions)
-    st.info(f"Akurasi sinyal: **{accuracy * 100:.2f}%**")
+    st.info(f"Winrate sinyal: **{accuracy * 100:.2f}%**")
 
     return df_result, final_value, gain, gain_pct, accuracy
 
@@ -206,7 +206,7 @@ def save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, accuracy,
             return
         cursor.execute("""
             INSERT INTO data_backtesting
-            (ticker, money, final_money, profit, profit_percentage, accuracy,
+            (ticker, money, final_money, profit, profit_percentage, winrate,
              start_date, end_date)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """, (ticker, money, final_value, gain, gain_pct, accuracy,
@@ -218,24 +218,24 @@ def save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, accuracy,
     finally:
         if conn.is_connected(): cursor.close(); conn.close()
 
-# Tampilkan grafik riwayat akurasi
+# Tampilkan grafik riwayat winrate
 def plot_accuracy_history(ticker):
     try:
         conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
         df = pd.read_sql(f"""
-            SELECT timestamp, accuracy FROM data_backtesting
-            WHERE ticker = '{ticker}' AND accuracy IS NOT NULL ORDER BY timestamp
+            SELECT timestamp, winrate FROM data_backtesting
+            WHERE ticker = '{ticker}' AND winrate IS NOT NULL ORDER BY timestamp
         """, conn)
         conn.close()
         if df.empty:
-            st.warning("Belum ada data akurasi disimpan untuk ticker ini.")
+            st.warning("Belum ada data winrate disimpan untuk ticker ini.")
             return
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=df['timestamp'], y=df['accuracy'], mode='lines+markers', name='Akurasi'))
-        fig.update_layout(title=f"Riwayat Akurasi {ticker}", xaxis_title='Tanggal', yaxis_title='Akurasi', yaxis_tickformat='.0%')
+        fig.add_trace(go.Scatter(x=df['timestamp'], y=df['winrate'], mode='lines+markers', name='Winrate'))
+        fig.update_layout(title=f"Riwayat Winrate {ticker}", xaxis_title='Tanggal', yaxis_title='Winrate', yaxis_tickformat='.0%')
         st.plotly_chart(fig, use_container_width=True)
     except Exception as e:
-        st.error(f"Gagal menampilkan grafik akurasi: {e}")
+        st.error(f"Gagal menampilkan grafik winrate: {e}")
 
 def evaluate_signal_pairs(df, signal_series):
     pairs = []
@@ -314,7 +314,7 @@ def experiment_buy_sell_combinations(df, signal_series):
 
     return pd.DataFrame(combos)
 
-# Evaluasi akurasi tiap indikator satu per satu
+# Evaluasi winrate tiap indikator satu per satu
 def evaluate_individual_indicators(ticker, df, params, interval, money):
     from modules.indicators import compute_indicators
     from modules.analysis import compute_final_signal
@@ -329,10 +329,10 @@ def evaluate_individual_indicators(ticker, df, params, interval, money):
             _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(df_ind, money, signal_series, key_prefix=f"{ticker}_{ind}_auto", enable_download=False)
             results.append({
                 'Indikator': ind,
-                'Akurasi': round(accuracy * 100, 2),
+                'Winrate': round(accuracy * 100, 2),
                 'Keuntungan (Rp)': round(gain, 2),
                 'Keuntungan (%)': round(gain_pct, 2)
             })
         except Exception as e:
-            results.append({'Indikator': ind, 'Akurasi': None, 'Keuntungan (Rp)': None, 'Keuntungan (%)': None, 'Error': str(e)})
+            results.append({'Indikator': ind, 'Winrate': None, 'Keuntungan (Rp)': None, 'Keuntungan (%)': None, 'Error': str(e)})
     return pd.DataFrame(results).sort_values(by='Keuntungan (%)', ascending=False).reset_index(drop=True)

@@ -55,7 +55,7 @@ def main() -> None:
 
     print(result_df)
     if best:
-        metric = 'Keuntungan (%)' if 'Keuntungan (%)' in result_df.columns else 'Akurasi'
+        metric = 'Keuntungan (%)' if 'Keuntungan (%)' in result_df.columns else 'Winrate'
         print(
             f"Indikator terbaik: {best['Indikator']} - {metric} {best.get(metric)}"
         )

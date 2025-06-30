@@ -27,7 +27,7 @@ def save_multi_ticker_evaluation_to_db(
                 strategy VARCHAR(50),
                 start_date DATE,
                 end_date DATE,
-                total_accuracy FLOAT,
+                total_winrate FLOAT,
                 total_profit FLOAT,
                 total_money FLOAT,
                 final_money FLOAT,
@@ -53,7 +53,7 @@ def save_multi_ticker_evaluation_to_db(
         cursor.execute("""
             INSERT INTO multi_ticker_evaluation
             (tickers_combination, interval, indicators, strategy, start_date, end_date,
-             total_accuracy, total_profit, total_money, final_money)
+             total_winrate, total_profit, total_money, final_money)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             tickers_combination, interval, indicators_used, strategy,

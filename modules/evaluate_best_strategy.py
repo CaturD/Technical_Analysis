@@ -30,7 +30,7 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
                 df_ind, money, signal_series, key_prefix=f"{ticker}_{ind}_single", enable_download=False)
             results.append({
                 "Indikator / Kombinasi": f"{ind} Only",
-                "Akurasi (%)": round(accuracy * 100, 2),
+                "Winrate (%)": round(accuracy * 100, 2),
                 "Profit (Rp)": round(gain, 2),
                 "Profit (%)": round(gain_pct, 2)
             })
@@ -50,7 +50,7 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
                     df_combo, money, signal_series, key_prefix=combo_key, enable_download=False)
                 results.append({
                     "Indikator / Kombinasi": f"Kombinasi: {', '.join(combo)}",
-                    "Akurasi (%)": round(accuracy * 100, 2),
+                    "Winrate (%)": round(accuracy * 100, 2),
                     "Profit (Rp)": round(gain, 2),
                     "Profit (%)": round(gain_pct, 2)
                 })
@@ -91,7 +91,7 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
                 top_combo = df_filtered.loc[df_filtered['Profit (Rp)'].idxmax()]
                 st.success(f"Kombinasi terbaik: **{top_combo['Indikator / Kombinasi']}** "
                         f"(Profit: Rp{top_combo['Profit (Rp)']:,.1f} | "
-                        f"Akurasi: {top_combo['Akurasi (%)']:.2f}%)")
+                        f"Winrate: {top_combo['Winrate (%)']:.2f}%)")
     else:
         st.info("Tidak ada data 'Profit (%)' yang valid untuk ditampilkan dalam grafik.")
 

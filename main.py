@@ -31,9 +31,10 @@ from modules.strategy_utils import generate_combination_results
 # Jalankan di awal main.py
 import mysql.connector
 
-def display_accuracy_result(result, label="Akurasi Historis"):
+# def display_accuracy_result(result, label="Akurasi Historis"):
+def display_accuracy_result(result, label="Winrate Historis"):
     if result:
-        st.metric(label, f"{result['accuracy']*100:.2f}%")
+        st.metric(label, f"{result['winrate']*100:.2f}%")
         with st.expander("Distribusi Sinyal"):
             df = pd.DataFrame(
                 [{'Sinyal': k, 'Jumlah': v} for k, v in result['signal_distribution'].items()]
@@ -142,7 +143,7 @@ with cols[1]:
                     <div style='padding: 10px; border-radius: 10px; background-color: #f9f9f9; border: 1px solid #ddd; text-align:center;'>
                         <strong style='color:{color};'>{row['ticker']}</strong><br>
                         <span style='font-size: 13px;'>Profit: {row['profit_percentage']:.2f}%</span><br>
-                        <span style='font-size: 13px;'>Akurasi: {row['accuracy']*100:.2f}%</span><br>
+                        <span style='font-size: 13px;'>Winrate: {row['winrate']*100:.2f}%</span><br>
                         <span style='font-size: 13px;'>Periode: {periode}</span>
                     </div>
                     """,
@@ -221,7 +222,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab_panduan = st.tabs([
     "Analisis Tersimpan",
     "Backtesting Analisis",
     "Backtesting Profit",
-    "Semua Akurasi Strategi",
+    "Semua Winrate Strategi",
     "Evaluasi Gabungan",
     "Evaluasi Strategi Terbaik",
     # "Winrate Evaluasi Strategi",
@@ -347,7 +348,7 @@ with tab3:
     st.subheader("Backtesting Analisis")
     st.markdown("""
         Fitur ini membandingkan sinyal akhir (`Final_Signal`) dengan arah harga keesokan harinya.
-        - Akurasi dihitung dari jumlah sinyal benar (Buy/Sell sesuai arah harga) dibagi total sinyal.
+        - Winrate dihitung dari jumlah sinyal benar (Buy/Sell sesuai arah harga) dibagi total sinyal.
         - Evaluasi ini membantu mengukur keandalan analisis Anda.
     """)
 
@@ -366,7 +367,7 @@ with tab3:
             num_profit = (df_pairs['Profit (%)'] > 0).sum()
             total = len(df_pairs)
             acc_pair = (num_profit / total) * 100
-            st.metric("Akurasi Pasangan Sinyal", f"{acc_pair:.2f}%")
+            st.metric("Winrate Pasangan Sinyal", f"{acc_pair:.2f}%")
 
         if not df_pairs.empty and 'Hold Days' in df_pairs.columns:
             up_days = df_pairs[df_pairs['Trend'] == 'Uptrend']['Hold Days'].mean()
@@ -470,9 +471,9 @@ with tab4:
                 strategy="Final_Signal",
                 indicators_dict=indicators,
                 params_dict=params,
-                accuracy_value=result_profit["accuracy"]
+                accuracy_value=result_profit["winrate"]
             )
-            display_accuracy_result(result_profit, "Akurasi Backtesting Profit")
+            display_accuracy_result(result_profit, "Winrate Backtesting Profit")
             df_result, final_value, gain, gain_pct, accuracy = run_backtesting_profit(
             df_bt, money, signal_series, key_prefix=f"{ticker}_{interval}_tab4"
             )
@@ -484,10 +485,10 @@ with tab4:
             plot_accuracy_history(ticker)
 
 with tab5:
-    st.subheader("Semua Riwayat Akurasi Strategi")
+    st.subheader("Semua Riwayat Winrate Strategi")
     st.markdown("""
         Menampilkkan rekapan seluruh strategi yang pernah diuji.
-        - Disusun berdasarkan akurasi tertinggi.
+        - Disusun berdasarkan winrate tertinggi.
         - Gunakan data ini untuk memilih strategi paling konsisten.
         """,)
     # from modules.evaluation_log import get_all_accuracy_logs
@@ -496,15 +497,15 @@ with tab5:
         st.dataframe(all_logs_df, use_container_width=True)
 
         best_row = all_logs_df.iloc[0]
-        st.success(f"Akurasi Tertinggi: {best_row['accuracy']*100:.2f}% | Ticker: {best_row['ticker']} | Strategi: {best_row['strategy']}")
+        st.success(f"Winrate Tertinggi: {best_row['winrate']*100:.2f}% | Ticker: {best_row['ticker']} | Strategi: {best_row['strategy']}")
     else:
-        st.info("Belum ada data akurasi yang tersedia.")
+        st.info("Belum ada data winrate yang tersedia.")
 
 with tab6:
     from modules.multi_eval import save_multi_ticker_evaluation_to_db
     st.subheader("Evaluasi Gabungan Saham")
     st.markdown("""
-    Fitur ini menghitung akurasi dan total profit dari semua ticker yang dipilih menggunakan kombinasi indikator yang sedang aktif.
+    Fitur ini menghitung winrate dan total profit dari semua ticker yang dipilih menggunakan kombinasi indikator yang sedang aktif.
     """)
 
     total_signals = 0
@@ -514,7 +515,7 @@ with tab6:
     total_final = 0
     hasil_ticker = []
 
-    if st.button("Evaluasi Gabungan Akurasi & Profit"):
+    if st.button("Evaluasi Gabungan Winrate & Profit"):
         for ticker in tickers:
             df_bt = fetch_backtesting_data(ticker, start_date, end_date)
             if df_bt is not None and not df_bt.empty:
@@ -532,7 +533,7 @@ with tab6:
 
                 hasil_ticker.append({
                     "Ticker": ticker,
-                    "Akurasi (%)": round(accuracy * 100, 2),
+                    "Winrate (%)": round(accuracy * 100, 2),
                     "Profit (Rp)": round(gain, 2),
                     "Final Uang": round(final_value, 2)
                 })
@@ -544,7 +545,7 @@ with tab6:
 
             akurasi_total = (total_correct / total_signals) * 100 if total_signals > 0 else 0
             st.markdown("### Akumulasi Gabungan")
-            st.metric("Akurasi Gabungan (%)", f"{akurasi_total:.2f}%")
+            st.metric("Winrate Gabungan (%)", f"{akurasi_total:.2f}%")
             st.metric("Total Profit (Rp)", f"{total_profit:,.0f}")
             st.metric("Modal Awal Total", f"{total_initial:,.0f}")
             st.metric("Total Nilai Akhir", f"{total_final:,.0f}")
@@ -578,7 +579,7 @@ with tab7:
         - Setiap indikator teknikal secara individual
         - Kombinasi 2–5 indikator
         - Strategi logika seperti All Agree, Final Signal, dll
-        Output berupa tabel & grafik akurasi dan profit. Di bawah tabel
+        Output berupa tabel & grafik winrate dan profit. Di bawah tabel
         strategi, ditampilkan juga indikator tunggal dengan profit tertinggi.
         """
     )
@@ -653,14 +654,14 @@ with tab_panduan:
 
     ### Tujuan
     - Menentukan waktu terbaik untuk beli (Buy), jual (Sell), atau tahan (Hold)
-    - Membandingkan strategi berdasarkan **akurasi** dan **profit historis**
+    - Membandingkan strategi berdasarkan **winrate** dan **profit historis**
     - Menguji kombinasi indikator dan strategi logika
 
     ### Penjelasan Fitur
     - **Analisis Saham**: Menampilkan sinyal dari indikator teknikal dan sinyal gabungan (`Final Signal`) berdasarkan voting mayoritas.
-    - **Backtesting Analisis**: Mengukur akurasi sinyal terhadap arah harga keesokan harinya.
+    - **Backtesting Analisis**: Mengukur winrate sinyal terhadap arah harga keesokan harinya.
     - **Backtesting Profit**: Simulasi keuntungan jika strategi dijalankan dengan modal sungguhan.
-    - **Evaluasi Gabungan**: Menggabungkan hasil dari beberapa saham untuk melihat akurasi dan total keuntungan.
+    - **Evaluasi Gabungan**: Menggabungkan hasil dari beberapa saham untuk melihat winrate dan total keuntungan.
     - **Strategi Terbaik**: Menampilkan hasil evaluasi setiap indikator dan kombinasi strategi.
 
     ### Cara Membaca Sinyal
@@ -671,7 +672,7 @@ with tab_panduan:
     ### Tips Interpretasi
     - Sinyal yang **muncul berurutan** cenderung lebih kuat (misal: Buy muncul 3 hari berturut-turut).
     - Kombinasi beberapa indikator lebih stabil dibanding 1 indikator tunggal.
-    - Perhatikan **akurasi** dan **profit** secara bersamaan untuk memilih strategi terbaik.
+    - Perhatikan **winrate** dan **profit** secara bersamaan untuk memilih strategi terbaik.
 
     ### Tentang Parameter Indikator
     - Anda bisa menyesuaikan parameter seperti MA period, MACD Fast/Slow, dll. di sidebar.
