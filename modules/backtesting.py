@@ -329,10 +329,10 @@ def evaluate_individual_indicators(ticker, df, params, interval, money):
             _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(df_ind, money, signal_series, key_prefix=f"{ticker}_{ind}_auto", enable_download=False)
             results.append({
                 'Indikator': ind,
-                'Winrate': round(accuracy * 100, 2),
+                'Win rate': round(accuracy * 100, 2),
                 'Keuntungan (Rp)': round(gain, 2),
                 'Keuntungan (%)': round(gain_pct, 2)
             })
         except Exception as e:
-            results.append({'Indikator': ind, 'Winrate': None, 'Keuntungan (Rp)': None, 'Keuntungan (%)': None, 'Error': str(e)})
+            results.append({'Indikator': ind, 'Win rate': None, 'Keuntungan (Rp)': None, 'Keuntungan (%)': None, 'Error': str(e)})
     return pd.DataFrame(results).sort_values(by='Keuntungan (%)', ascending=False).reset_index(drop=True)

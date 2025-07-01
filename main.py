@@ -27,14 +27,14 @@ from modules.evaluate_best_strategy import evaluate_strategies_combined
 from modules.multi_eval import save_multi_ticker_evaluation_to_db
 from modules.best_indicator import get_best_indicator
 from modules.strategy_utils import generate_combination_results
+from modules.analysis import save_date_filtered_trend_to_db
 
 # Jalankan di awal main.py
 import mysql.connector
 
-# def display_accuracy_result(result, label="Akurasi Historis"):
-def display_accuracy_result(result, label="Win Rate Historis"):
+def display_accuracy_result(result, label="Winrate Historis"):
     if result:
-        st.metric(label, f"{result['winrate']*100:.2f}%")
+        st.metric(label, f"{result['accuracy']*100:.2f}%")
         with st.expander("Distribusi Sinyal"):
             df = pd.DataFrame(
                 [{'Sinyal': k, 'Jumlah': v} for k, v in result['signal_distribution'].items()]
@@ -228,7 +228,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab_panduan = st.tabs([
     # "Win Rate Evaluasi Strategi",
     "Panduan Dashboard"
 ])
-
+# Tab 1 Analisis Saham: Menampilkan tren dan distribusi sinyal.
 with tab1:
     st.subheader("Analisis Saham")
     st.markdown("""
@@ -249,15 +249,14 @@ with tab1:
             display_analysis_table_with_summary(data_in_range, indicators, signal_filter)
             save_analysis_to_json_db(ticker, data_in_range, indicators)
 
-        st.markdown("Tren Pergerakan Saham Tahunan per Indikator & Kombinasi")
+        st.markdown("#### Tren Pergerakan Saham")
 
-        # Tambahkan kolom tahun dari index
-        data['Year'] = data.index.year
-
-        def tentukan_tren(grup):
-            buy = (grup == 'Buy').sum()
-            sell = (grup == 'Sell').sum()
-            total = len(grup)
+        def tentukan_tren_dari_sinyal(sinyal_series):
+            buy = (sinyal_series == 'Buy').sum()
+            sell = (sinyal_series == 'Sell').sum()
+            total = len(sinyal_series)
+            if total == 0:
+                return "-"
             if buy / total > 0.4:
                 return "Uptrend"
             elif sell / total > 0.4:
@@ -266,37 +265,44 @@ with tab1:
                 return "Sideways"
 
         tren_rows = []
+        tanggal_label = f"Tren ({start_date} s.d. {end_date})"
+
+        # Data dalam rentang waktu
+        data_in_range = data[(data.index >= pd.to_datetime(start_date)) & (data.index <= pd.to_datetime(end_date))]
 
         # Indikator individual
         for indikator in ['Signal_MA', 'Signal_MACD', 'Signal_Ichimoku', 'Signal_SO', 'Signal_Volume']:
-            if indikator in data.columns:
-                tren_dict = {'Ticker': ticker, 'Indikator': indikator.replace("Signal_", "")}
-                for tahun in [2022, 2023, 2024, 2025]:
-                    df_tahun = data[data['Year'] == tahun]
-                    if not df_tahun.empty:
-                        tren = tentukan_tren(df_tahun[indikator])
-                    else:
-                        tren = '-'
-                    tren_dict[f'Tren {tahun}'] = tren
-                tren_rows.append(tren_dict)
+            if indikator in data_in_range.columns:
+                tren = tentukan_tren_dari_sinyal(data_in_range[indikator])
+                tren_rows.append({
+                    'Ticker': ticker,
+                    'Indikator': indikator.replace("Signal_", ""),
+                    tanggal_label: tren
+                })
 
-        # Kombinasi indikator aktif (Final_Signal)
-        tren_combo = {'Ticker': ticker, 'Indikator': 'Kombinasi'}
-        for tahun in [2022, 2023, 2024, 2025]:
-            df_tahun = data[data['Year'] == tahun]
-            if not df_tahun.empty:
-                tren = tentukan_tren(df_tahun['Final_Signal'])
-            else:
-                tren = '-'
-            tren_combo[f'Tren {tahun}'] = tren
-        tren_rows.append(tren_combo)
+        # Kombinasi aktif (Final Signal)
+        if 'Final_Signal' in data_in_range.columns:
+            tren = tentukan_tren_dari_sinyal(data_in_range['Final_Signal'])
+            tren_rows.append({
+                'Ticker': ticker,
+                'Indikator': 'Kombinasi',
+                tanggal_label: tren
+            })
 
-        # Buat dan tampilkan tabel
-        df_tren_multi = pd.DataFrame(tren_rows)
-        st.dataframe(df_tren_multi, use_container_width=True)
+        df_tren_custom = pd.DataFrame(tren_rows)
+        st.dataframe(df_tren_custom, use_container_width=True)
+        # Tombol simpan
+        if st.button("Simpan Tren Tanggal ke Database", key=f"{ticker}_simpan_tren_range"):
+            for row in tren_rows:
+                save_date_filtered_trend_to_db(
+                    ticker=row['Ticker'],
+                    indikator=row['Indikator'],
+                    trend=row[tanggal_label],
+                    start_date=start_date,
+                    end_date=end_date
+                )
 
         st.markdown("#### Total Sinyal per Indikator")
-
         indikator_aktif = [k for k, v in indicators.items() if v]
         sinyal_ringkasan = []
 
@@ -343,8 +349,8 @@ with tab2:
         else:
             st.info("Belum ada hasil analisis yang tersimpan untuk ticker ini.")
 
+# Tab 3 Backtesting Analisis: Mengukur win rate dari pairing Buy–Sell.
 with tab3:
-
     st.subheader("Backtesting Analisis")
     st.markdown("""
         Fitur ini membandingkan sinyal akhir (`Final_Signal`) dengan arah harga keesokan harinya.
@@ -382,6 +388,8 @@ with tab3:
         if df_pairs.empty:
             st.warning("Tidak ada pasangan sinyal valid ditemukan.")
         else:
+            if 'Trend' in df_pairs.columns:
+                df_pairs = df_pairs.drop(columns=['Trend'])
             st.dataframe(df_pairs, use_container_width=True)
             # plot_signal_pairs(df_bt, df_pairs)
             plot_signal_pairs(df_bt, df_pairs, show_lines=True)
@@ -403,7 +411,7 @@ with tab3:
             )
             st.plotly_chart(fig_profit, use_container_width=True)
 
-            st.subheader("Pasangan All Sinyal")
+            st.subheader("Evaluasi Pasangan Semua Sinyal")
             st.markdown(
                 """
                 Tab ini menguji berbagai kombinasi antara urutan sinyal **Buy** ke-n
@@ -415,11 +423,15 @@ with tab3:
             if df_combo.empty:
                 st.info("Tidak ada kombinasi pasangan all buy/sell yang valid.")
             else:
+                if 'Trend' in df_combo.columns:
+                    df_combo = df_combo.drop(columns=['Trend'])
                 st.dataframe(df_combo, use_container_width=True)
 
                 if 'Hold Days' in df_combo.columns:
-                    up_days = df_combo[df_combo['Trend'] == 'Uptrend']['Hold Days'].mean()
-                    down_days = df_combo[df_combo['Trend'] == 'Downtrend']['Hold Days'].mean()
+                    df_positive = df_combo[df_combo['Profit'] > 0]
+                    if not df_positive.empty:
+                        st.metric("Rata-rata Hold (Profit)", f"{df_positive['Hold Days'].mean():.1f} hari")
+
                     # col1, col2 = st.columns(2)
                     # if not pd.isna(up_days):
                     #     col1.metric("Rata-rata Hold Uptrend", f"{up_days:.1f} hari")
@@ -447,7 +459,7 @@ with tab3:
         except Exception as e:
             st.error(f"Gagal menampilkan rekomendasi langkah selanjutnya: {e}")
 
-
+# Tab 4 Backtesting Profit: Simulasi hasil trading dan win rate strategi.
 with tab4:
     st.subheader("Backtesting Profit")
     st.markdown(""" 
@@ -471,9 +483,9 @@ with tab4:
                 strategy="Final_Signal",
                 indicators_dict=indicators,
                 params_dict=params,
-                accuracy_value=result_profit["winrate"]
+                accuracy_value=result_profit["accuracy"]
             )
-            display_accuracy_result(result_profit, "Win Rate Backtesting Profit")
+            display_accuracy_result(result_profit, "Accuracy Backtesting Prediction")
             df_result, final_value, gain, gain_pct, accuracy = run_backtesting_profit(
             df_bt, money, signal_series, key_prefix=f"{ticker}_{interval}_tab4"
             )
@@ -495,7 +507,7 @@ with tab5:
     all_logs_df = get_all_accuracy_logs()
     if not all_logs_df.empty:
         # st.dataframe(all_logs_df, use_container_width=True)
-        df_display = all_logs_df.rename(columns={"winrate": "Win Rate"})
+        df_display = all_logs_df.rename(columns={"winrate": "Accuracy"})
         st.dataframe(df_display, use_container_width=True)
 
         best_row = all_logs_df.iloc[0]
@@ -547,7 +559,7 @@ with tab6:
 
             akurasi_total = (total_correct / total_signals) * 100 if total_signals > 0 else 0
             st.markdown("### Akumulasi Gabungan")
-            st.metric("Win Rate Gabungan (%)", f"{akurasi_total:.2f}%")
+            st.metric("Akurasi Gabungan (%)", f"{akurasi_total:.2f}%")
             st.metric("Total Profit (Rp)", f"{total_profit:,.0f}")
             st.metric("Modal Awal Total", f"{total_initial:,.0f}")
             st.metric("Total Nilai Akhir", f"{total_final:,.0f}")

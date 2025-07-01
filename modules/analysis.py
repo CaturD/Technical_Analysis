@@ -141,9 +141,12 @@ def show_signal_recap(data, indicators, title='Rekapitulasi Sinyal'):
                 rows.append({'Indikator': label, 'Sinyal': label_sinyal, 'Jumlah': values.get(label_sinyal, 0)})
     st.dataframe(pd.DataFrame(rows), use_container_width=True)
 
-# Evaluasi akurasi strategi berdasarkan arah harga
+# Evaluasi akurasi strategi berdasarkan arah harga.
+# Fungsi ini mengukur **akurasi** prediksi arah harga dari sinyal Buy/Sell
+# yang dihasilkan, **bukan** performa trading aktual.
 def evaluate_strategy_accuracy(df):
-    if 'Close' not in df.columns or 'Final_Signal' not in df.columns: return None
+    if 'Close' not in df.columns or 'Final_Signal' not in df.columns:
+        return None
     df = df.copy()
     df['Future_Close'] = df['Close'].shift(-1)
     df.dropna(subset=['Future_Close', 'Final_Signal'], inplace=True)
@@ -152,10 +155,50 @@ def evaluate_strategy_accuracy(df):
     mask = df['Final_Signal'].isin(['Buy', 'Sell'])
     accuracy = accuracy_score(df.loc[mask, 'Final_Signal'], df.loc[mask, 'Actual_Signal'])
     result = {
-        "winrate": accuracy,
+        "accuracy": accuracy,  # ← sebelumnya 'winrate'
         "total_signals": len(df),
         "correct_predictions": (df['Final_Signal'] == df['Actual_Signal']).sum(),
         "signal_distribution": df['Final_Signal'].value_counts().to_dict()
     }
     return result
 
+def save_date_filtered_trend_to_db(ticker, indikator, trend, start_date, end_date):
+    try:
+        conn = mysql.connector.connect(
+            host="localhost", user="root", password="", database="indonesia_stock"
+        )
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS trend_filtered (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                ticker VARCHAR(10),
+                indikator VARCHAR(50),
+                start_date DATE,
+                end_date DATE,
+                trend_result VARCHAR(20),
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        cursor.execute("""
+            SELECT COUNT(*) FROM trend_filtered
+            WHERE ticker=%s AND indikator=%s AND start_date=%s AND end_date=%s
+        """, (ticker, indikator, start_date, end_date))
+
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("""
+                INSERT INTO trend_filtered (ticker, indikator, start_date, end_date, trend_result)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (ticker, indikator, start_date, end_date, trend))
+            conn.commit()
+        else:
+            print(f"Data tren {indikator} untuk {ticker} periode {start_date} s.d. {end_date} sudah ada.")
+
+    except Exception as e:
+        print(f"Error menyimpan tren ke DB: {e}")
+
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
