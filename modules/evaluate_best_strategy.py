@@ -26,11 +26,11 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
         df_ind['Final_Signal'] = compute_final_signal(df_ind, ind_dict)
         signal_series = apply_custom_strategy(df_ind, f"{ind} Only")
         try:
-            _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(
+            _, final_value, gain, gain_pct, winrate = run_backtesting_profit(
                 df_ind, money, signal_series, key_prefix=f"{ticker}_{ind}_single", enable_download=False)
             results.append({
                 "Indikator / Kombinasi": f"{ind} Only",
-                "Win Rate (%)": round(accuracy * 100, 2),
+                "Win Rate (%)": round(winrate * 100, 2),
                 "Profit (Rp)": round(gain, 2),
                 "Profit (%)": round(gain_pct, 2)
             })
@@ -46,11 +46,11 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
             signal_series = apply_custom_strategy(df_combo, "Final Signal")
             try:
                 combo_key = f"{ticker}_{'_'.join(sorted(combo))}"
-                _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(
+                _, final_value, gain, gain_pct, winrate = run_backtesting_profit(
                     df_combo, money, signal_series, key_prefix=combo_key, enable_download=False)
                 results.append({
                     "Indikator / Kombinasi": f"Kombinasi: {', '.join(combo)}",
-                    "Win Rate (%)": round(accuracy * 100, 2),
+                    "Win Rate (%)": round(winrate * 100, 2),
                     "Profit (Rp)": round(gain, 2),
                     "Profit (%)": round(gain_pct, 2)
                 })

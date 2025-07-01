@@ -8,7 +8,7 @@ def save_multi_ticker_evaluation_to_db(
     strategy,
     start_date,
     end_date,
-    total_accuracy,
+    total_winrate,
     total_profit,
     total_money,
     final_money,
@@ -58,7 +58,7 @@ def save_multi_ticker_evaluation_to_db(
         """, (
             tickers_combination, interval, indicators_used, strategy,
             start_date, end_date,
-            total_accuracy, total_profit, total_money, final_money
+            total_winrate, total_profit, total_money, final_money
         ))
         conn.commit()
         return True, "Berhasil disimpan ke database."

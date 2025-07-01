@@ -141,10 +141,8 @@ def show_signal_recap(data, indicators, title='Rekapitulasi Sinyal'):
                 rows.append({'Indikator': label, 'Sinyal': label_sinyal, 'Jumlah': values.get(label_sinyal, 0)})
     st.dataframe(pd.DataFrame(rows), use_container_width=True)
 
-# Evaluasi akurasi strategi berdasarkan arah harga.
-# Fungsi ini mengukur **akurasi** prediksi arah harga dari sinyal Buy/Sell
-# yang dihasilkan, **bukan** performa trading aktual.
-def evaluate_strategy_accuracy(df):
+# Evaluasi win rate strategi berdasarkan arah harga
+def evaluate_strategy_winrate(df):
     if 'Close' not in df.columns or 'Final_Signal' not in df.columns:
         return None
     df = df.copy()
@@ -153,9 +151,9 @@ def evaluate_strategy_accuracy(df):
     df['Actual_Trend'] = df['Future_Close'] > df['Close']
     df['Actual_Signal'] = df['Actual_Trend'].map({True: 'Buy', False: 'Sell'})
     mask = df['Final_Signal'].isin(['Buy', 'Sell'])
-    accuracy = accuracy_score(df.loc[mask, 'Final_Signal'], df.loc[mask, 'Actual_Signal'])
+    winrate = accuracy_score(df.loc[mask, 'Final_Signal'], df.loc[mask, 'Actual_Signal'])
     result = {
-        "accuracy": accuracy,  # ← sebelumnya 'winrate'
+        "winrate": winrate,  # ← sebelumnya 'winrate'
         "total_signals": len(df),
         "correct_predictions": (df['Final_Signal'] == df['Actual_Signal']).sum(),
         "signal_distribution": df['Final_Signal'].value_counts().to_dict()

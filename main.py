@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 import plotly.graph_objects as go
 from modules.database import get_ticker_list, get_data_from_db
-# from modules.evaluation_log import get_all_accuracy_logs
+# from modules.evaluation_log import get_all_winrate_logs
 from modules.indicators import compute_indicators
 from modules.visuals import plot_indicators, plot_signal_pairs
 from modules.backtesting import show_indicator_explanation
@@ -12,16 +12,16 @@ from modules.evaluation_log import get_top_strategies_by_profit
 # from modules.evaluate_best_strategy import evaluate_strategies_combined
 from modules.analysis import (
     compute_final_signal, display_analysis_table_with_summary, save_analysis_to_json_db,
-    fetch_saved_titles, load_analysis_by_title, show_signal_recap, evaluate_strategy_accuracy
+    fetch_saved_titles, load_analysis_by_title, show_signal_recap, evaluate_strategy_winrate
 )
 from modules.backtesting import (
     fetch_backtesting_data, run_backtesting_profit,
-    save_backtesting_to_db, plot_accuracy_history, evaluate_signal_pairs, show_indicator_explanation,
+    save_backtesting_to_db, plot_winrate_history, evaluate_signal_pairs, show_indicator_explanation,
     # evaluate_individual_indicators
     evaluate_individual_indicators, experiment_buy_sell_combinations
 )
 from modules.evaluation_log import (
-    evaluate_indicator_combinations, get_all_accuracy_logs, save_accuracy_evaluation_to_db,
+    evaluate_indicator_combinations, get_all_winrate_logs, save_winrate_evaluation_to_db,
 )
 from modules.evaluate_best_strategy import evaluate_strategies_combined
 from modules.multi_eval import save_multi_ticker_evaluation_to_db
@@ -32,9 +32,9 @@ from modules.analysis import save_date_filtered_trend_to_db
 # Jalankan di awal main.py
 import mysql.connector
 
-def display_accuracy_result(result, label="Winrate Historis"):
+def display_winrate_result(result, label="Winrate Historis"):
     if result:
-        st.metric(label, f"{result['accuracy']*100:.2f}%")
+        st.metric(label, f"{result['winrate']*100:.2f}%")
         with st.expander("Distribusi Sinyal"):
             df = pd.DataFrame(
                 [{'Sinyal': k, 'Jumlah': v} for k, v in result['signal_distribution'].items()]
@@ -164,8 +164,8 @@ with cols[2]:
 
 # Sidebar
 ticker_list = get_ticker_list()
-tickers = st.sidebar.multiselect("Pilih Ticker", ticker_list, default=[ticker_list[0]])
-interval = st.sidebar.selectbox("Pilih Interval", [
+tickers = st.sidebar.multiselect("Ticker", ticker_list, default=[ticker_list[0]])
+interval = st.sidebar.selectbox("Interval", [
     "1 minute", "2 minutes", "3 minutes", "5 minutes", "10 minutes", "15 minutes", "30 minutes", "45 minutes",
     "1 hour", "2 hours", "3 hours", "4 hours",
     "1 day", "1 week", "1 month", "3 months", "6 months", "12 months"
@@ -173,8 +173,8 @@ interval = st.sidebar.selectbox("Pilih Interval", [
 index=12
 )
 st.sidebar.markdown(f"**Interval terpilih:** {interval}")
-start_date = st.sidebar.date_input("Tanggal Mulai", datetime(2024, 5, 31))
-end_date = st.sidebar.date_input("Tanggal Selesai", datetime(2025, 5, 31))
+start_date = st.sidebar.date_input("Start Date", datetime(2024, 5, 31))
+end_date = st.sidebar.date_input("End Date", datetime(2025, 5, 31))
 money = st.sidebar.number_input("Modal Awal (Rp)", value=1_000_000, step=500_000)
 
 # Indikator yang digunakan
@@ -303,6 +303,7 @@ with tab1:
                 )
 
         st.markdown("#### Total Sinyal per Indikator")
+
         indikator_aktif = [k for k, v in indicators.items() if v]
         sinyal_ringkasan = []
 
@@ -351,6 +352,7 @@ with tab2:
 
 # Tab 3 Backtesting Analisis: Mengukur win rate dari pairing Buy–Sell.
 with tab3:
+
     st.subheader("Backtesting Analisis")
     st.markdown("""
         Fitur ini membandingkan sinyal akhir (`Final_Signal`) dengan arah harga keesokan harinya.
@@ -475,26 +477,26 @@ with tab4:
             df_bt = compute_indicators(df_bt, indicators, params)
             df_bt['Final_Signal'] = compute_final_signal(df_bt, indicators)
             signal_series = df_bt['Final_Signal']
-            result_profit = result_profit = evaluate_strategy_accuracy(df_bt.copy())
-            from modules.evaluation_log import save_accuracy_evaluation_to_db
-            save_accuracy_evaluation_to_db(
+            result_profit = result_profit = evaluate_strategy_winrate(df_bt.copy())
+            from modules.evaluation_log import save_winrate_evaluation_to_db
+            save_winrate_evaluation_to_db(
                 ticker=ticker,
                 interval=interval,
                 strategy="Final_Signal",
                 indicators_dict=indicators,
                 params_dict=params,
-                accuracy_value=result_profit["accuracy"]
+                winrate_value=result_profit["winrate"]
             )
-            display_accuracy_result(result_profit, "Accuracy Backtesting Prediction")
-            df_result, final_value, gain, gain_pct, accuracy = run_backtesting_profit(
+            display_winrate_result(result_profit, "Win Rate Backtesting Prediction")
+            df_result, final_value, gain, gain_pct, winrate = run_backtesting_profit(
             df_bt, money, signal_series, key_prefix=f"{ticker}_{interval}_tab4"
             )
-            # save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, accuracy)
+            # save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, winrate)
             save_backtesting_to_db(
-                ticker, money, final_value, gain, gain_pct, accuracy,
+                ticker, money, final_value, gain, gain_pct, winrate,
                 start_date, end_date
             )
-            plot_accuracy_history(ticker)
+            plot_winrate_history(ticker)
 
 with tab5:
     st.subheader("Semua Riwayat Win Rate Strategi")
@@ -503,11 +505,11 @@ with tab5:
         - Disusun berdasarkan win Rate tertinggi.
         - Gunakan data ini untuk memilih strategi paling konsisten.
         """,)
-    # from modules.evaluation_log import get_all_accuracy_logs
-    all_logs_df = get_all_accuracy_logs()
+    # from modules.evaluation_log import get_all_winrate_logs
+    all_logs_df = get_all_winrate_logs()
     if not all_logs_df.empty:
         # st.dataframe(all_logs_df, use_container_width=True)
-        df_display = all_logs_df.rename(columns={"winrate": "Accuracy"})
+        df_display = all_logs_df.rename(columns={"winate": "Win Rate"})
         st.dataframe(df_display, use_container_width=True)
 
         best_row = all_logs_df.iloc[0]
@@ -534,9 +536,9 @@ with tab6:
             df_bt = fetch_backtesting_data(ticker, start_date, end_date)
             if df_bt is not None and not df_bt.empty:
                 df_bt['Final_Signal'] = compute_final_signal(df_bt, indicators)
-                result = evaluate_strategy_accuracy(df_bt.copy())
+                result = evaluate_strategy_winrate(df_bt.copy())
                 signal_series = df_bt['Final_Signal']
-                _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(
+                _, final_value, gain, gain_pct, winrate = run_backtesting_profit(
                     df_bt, money, signal_series, key_prefix=f"{ticker}_bulk_eval")
 
                 total_signals += result['total_signals']
@@ -547,7 +549,7 @@ with tab6:
 
                 hasil_ticker.append({
                     "Ticker": ticker,
-                    "Win Rate (%)": round(accuracy * 100, 2),
+                    "Win Rate (%)": round(winrate * 100, 2),
                     "Profit (Rp)": round(gain, 2),
                     "Final Uang": round(final_value, 2)
                 })
@@ -559,7 +561,7 @@ with tab6:
 
             akurasi_total = (total_correct / total_signals) * 100 if total_signals > 0 else 0
             st.markdown("### Akumulasi Gabungan")
-            st.metric("Akurasi Gabungan (%)", f"{akurasi_total:.2f}%")
+            st.metric("Win Rate Gabungan (%)", f"{akurasi_total:.2f}%")
             st.metric("Total Profit (Rp)", f"{total_profit:,.0f}")
             st.metric("Modal Awal Total", f"{total_initial:,.0f}")
             st.metric("Total Nilai Akhir", f"{total_final:,.0f}")
@@ -573,7 +575,7 @@ with tab6:
                     strategy="Final_Signal",
                     start_date=start_date,
                     end_date=end_date,
-                    total_accuracy=akurasi_total,
+                    total_winrate=akurasi_total,
                     total_profit=total_profit,
                     total_money=total_initial,
                     final_money=total_final

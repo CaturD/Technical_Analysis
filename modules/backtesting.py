@@ -135,10 +135,10 @@ def run_backtesting_profit(df, money, signal_series, key_prefix="default", enabl
             key=f"download_button_{key_prefix}_profit"
         )
 
-    accuracy = accuracy_score(actuals, predictions)
-    st.info(f"Win Rate sinyal: **{accuracy * 100:.2f}%**")
+    winrate = accuracy_score(actuals, predictions)
+    st.info(f"Win Rate sinyal: **{winrate * 100:.2f}%**")
 
-    return df_result, final_value, gain, gain_pct, accuracy
+    return df_result, final_value, gain, gain_pct, winrate
 
 def show_indicator_explanation(indicators):
     st.markdown("""
@@ -189,8 +189,8 @@ def show_indicator_explanation(indicators):
 
 
 # Simpan hasil backtesting ke database
-# def save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, accuracy):
-def save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, accuracy,
+# def save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, winrate):
+def save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, winrate,
                            start_date, end_date):
     try:
         conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
@@ -209,7 +209,7 @@ def save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, accuracy,
             (ticker, money, final_money, profit, profit_percentage, winrate,
              start_date, end_date)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """, (ticker, money, final_value, gain, gain_pct, accuracy,
+        """, (ticker, money, final_value, gain, gain_pct, winrate,
                 start_date, end_date))
         conn.commit()
         st.success("Hasil backtesting berhasil disimpan ke database.")
@@ -219,7 +219,7 @@ def save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, accuracy,
         if conn.is_connected(): cursor.close(); conn.close()
 
 # Tampilkan grafik riwayat winrate
-def plot_accuracy_history(ticker):
+def plot_winrate_history(ticker):
     try:
         conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
         df = pd.read_sql(f"""
@@ -326,13 +326,13 @@ def evaluate_individual_indicators(ticker, df, params, interval, money):
         df_ind['Final_Signal'] = compute_final_signal(df_ind, active_indicators)
         signal_series = apply_custom_strategy(df_ind, "Final Signal")
         try:
-            _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(df_ind, money, signal_series, key_prefix=f"{ticker}_{ind}_auto", enable_download=False)
+            _, final_value, gain, gain_pct, winrate = run_backtesting_profit(df_ind, money, signal_series, key_prefix=f"{ticker}_{ind}_auto", enable_download=False)
             results.append({
                 'Indikator': ind,
-                'Win rate': round(accuracy * 100, 2),
+                'Win Rate': round(winrate * 100, 2),
                 'Keuntungan (Rp)': round(gain, 2),
                 'Keuntungan (%)': round(gain_pct, 2)
             })
         except Exception as e:
-            results.append({'Indikator': ind, 'Win rate': None, 'Keuntungan (Rp)': None, 'Keuntungan (%)': None, 'Error': str(e)})
+            results.append({'Indikator': ind, 'Win Rate': None, 'Keuntungan (Rp)': None, 'Keuntungan (%)': None, 'Error': str(e)})
     return pd.DataFrame(results).sort_values(by='Keuntungan (%)', ascending=False).reset_index(drop=True)

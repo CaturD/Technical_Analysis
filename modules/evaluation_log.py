@@ -9,7 +9,7 @@ from modules.custom_strategies import apply_custom_strategy
 from modules.backtesting import run_backtesting_profit
 
 
-def save_accuracy_evaluation_to_db(ticker, interval, strategy, indicators_dict, params_dict, accuracy_value, db_config=None):
+def save_winrate_evaluation_to_db(ticker, interval, strategy, indicators_dict, params_dict, winrate_value, db_config=None):
     if db_config is None:
         db_config = {"host": "localhost", "user": "root", "password": "", "database": "indonesia_stock"}
 
@@ -41,7 +41,7 @@ def save_accuracy_evaluation_to_db(ticker, interval, strategy, indicators_dict, 
                 INSERT INTO strategy_winrate_log
                 (ticker, data_interval, strategy, indicators, parameters, winrate)
                 VALUES (%s, %s, %s, %s, %s, %s)
-            """, (ticker, interval, strategy, indicators_used, params_json, accuracy_value))
+            """, (ticker, interval, strategy, indicators_used, params_json, winrate_value))
             conn.commit()
             print("Data win rate disimpan.")
         else:
@@ -74,13 +74,13 @@ def evaluate_indicator_combinations(ticker, df, params, interval, money=1_000_00
                 if signal_series.nunique() <= 1:
                     continue
 
-                _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(
+                _, final_value, gain, gain_pct, winrate = run_backtesting_profit(
                     df_eval, money, signal_series, key_prefix=f"{ticker}_{'_'.join(combo)}"
                 )
 
                 results.append({
                     'Kombinasi': ', '.join(combo),
-                    'Winrate': round(accuracy * 100, 2),
+                    'Win Rate': round(winrate * 100, 2),
                     'Keuntungan (Rp)': round(gain, 2),
                     'Keuntungan (%)': round(gain_pct, 2)
                 })
@@ -88,7 +88,7 @@ def evaluate_indicator_combinations(ticker, df, params, interval, money=1_000_00
             except Exception as e:
                 results.append({
                     'Kombinasi': ', '.join(combo),
-                    'Winrate': None,
+                    'Win Rate': None,
                     'Keuntungan (Rp)': None,
                     'Keuntungan (%)': None,
                     'Error': str(e)
@@ -96,14 +96,13 @@ def evaluate_indicator_combinations(ticker, df, params, interval, money=1_000_00
 
     df_result = pd.DataFrame(results)
 
-    for col in ['Kombinasi', 'Winrate', 'Keuntungan (Rp)', 'Keuntungan (%)']:
+    for col in ['Kombinasi', 'Win Rate', 'Keuntungan (Rp)', 'Keuntungan (%)']:
         if col not in df_result.columns:
             df_result[col] = None
 
     return df_result.sort_values(by='Keuntungan (Rp)', ascending=False).reset_index(drop=True)
 
-
-def get_all_accuracy_logs():
+def get_all_winrate_logs():
     try:
         conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
         query = """

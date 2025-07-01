@@ -15,12 +15,12 @@ def generate_combination_results(ticker, df, indikator_list, params, interval, m
             df_eval['Final_Signal'] = compute_final_signal(df_eval, combo_dict)
             signal_series = apply_custom_strategy(df_eval, "Final Signal")
             try:
-                _, final_value, gain, gain_pct, accuracy = run_backtesting_profit(
+                _, final_value, gain, gain_pct, winrate = run_backtesting_profit(
                     df_eval, money, signal_series, key_prefix=f"{ticker}_{'_'.join(combo)}", enable_download=False
                 )
                 results.append({
                     'Kombinasi': ', '.join(combo),
-                    'Win Rate': round(accuracy * 100, 2),
+                    'Win Rate': round(winrate * 100, 2),
                     'Keuntungan (Rp)': round(gain),
                     'Keuntungan (%)': round(gain_pct, 2)
                 })
