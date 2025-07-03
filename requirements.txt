@@ -3,5 +3,4 @@ pandas
 mysql-connector-python
 sqlalchemy
 plotly
-xlsxwriter
 scikit-learn

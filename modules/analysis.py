@@ -70,7 +70,12 @@ def save_analysis_to_json_db(ticker, data, indicators):
                 if err.errno != errorcode.ER_DUP_FIELDNAME:
                     raise
         data = data.reset_index()
-        data['Date'] = data['Date'].dt.strftime('%Y-%m-%d')
+        # Ambil kolom index pertama dan jadikan 'Date'
+        time_col = data.columns[0]
+        data.rename(columns={time_col: 'Date'}, inplace=True)
+        # Konversi ke string format tanggal
+        data['Date'] = pd.to_datetime(data['Date']).dt.strftime('%Y-%m-%d')
+
         json_data = data.to_json(orient='records')
         indikator_aktif = ', '.join([k for k, v in indicators.items() if v])
         title = f"Analisis {ticker} {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
@@ -114,8 +119,16 @@ def load_analysis_by_title(ticker, title):
         result = cursor.fetchone()  # ← ini penting, harus dieksekusi sebelum close
         if result:
             df = pd.DataFrame(json.loads(result[0]))
-            df['Date'] = pd.to_datetime(df['Date'])
-            df.set_index('Date', inplace=True)
+            # Cari dan atur kolom waktu
+            for time_col in ['Date', 'Datetime', 'date', 'datetime', 'timestamp']:
+                if time_col in df.columns:
+                    df[time_col] = pd.to_datetime(df[time_col])
+                    df.set_index(time_col, inplace=True)
+                    df.sort_index(inplace=True)
+                    break
+            else:
+                raise ValueError("Tidak ditemukan kolom waktu ('Date' / 'Datetime') dalam hasil analisis.")
+
             return df
         return pd.DataFrame()
     except Exception as e:

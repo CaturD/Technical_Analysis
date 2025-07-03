@@ -14,11 +14,11 @@ def generate_next_step_recommendation(df, indicators):
 
     # MA
     if indicators.get("MA") and 'Signal_MA' in df.columns and df['Signal_MA'].iloc[-1] == signal:
-        result['reasons'].append("Moving Average mendukung sinyal ini")
+        result['reasons'].append("Moving Average mendukung pergerakan sinyal ini")
 
     # MACD
     if indicators.get("MACD") and 'Signal_MACD' in df.columns and df['Signal_MACD'].iloc[-1] == signal:
-        result['reasons'].append("MACD menunjukkan arah yang sama")
+        result['reasons'].append("MACD menunjukkan arah yang selaras")
 
     # Volume
     if indicators.get("Volume") and 'Signal_Volume' in df.columns:
@@ -34,7 +34,7 @@ def generate_next_step_recommendation(df, indicators):
 
     # Stochastic Oscillator (SO)
     if indicators.get("SO") and 'Signal_SO' in df.columns and df['Signal_SO'].iloc[-1] == signal:
-        result['reasons'].append("Stochastic Oscillator mendukung arah sinyal ini")
+        result['reasons'].append("Stochastic Oscillator mendukung arah pergerakan sinyal ini")
 
     # Hitung confidence
     confidence_score = 60 + 10 * len(result['reasons'])

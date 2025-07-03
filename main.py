@@ -6,7 +6,7 @@ from modules.database import get_ticker_list, get_data_from_db
 # from modules.evaluation_log import get_all_winrate_logs
 from modules.indicators import compute_indicators
 from modules.visuals import plot_indicators, plot_signal_pairs
-from modules.backtesting import show_indicator_explanation
+# from modules.backtesting import show_indicator_explanation
 from modules.next_step import generate_next_step_recommendation
 from modules.evaluation_log import get_top_strategies_by_profit
 # from modules.evaluate_best_strategy import evaluate_strategies_combined
@@ -16,7 +16,7 @@ from modules.analysis import (
 )
 from modules.backtesting import (
     fetch_backtesting_data, run_backtesting_profit,
-    save_backtesting_to_db, plot_winrate_history, evaluate_signal_pairs, show_indicator_explanation,
+    save_backtesting_to_db, plot_winrate_history, evaluate_signal_pairs,
     # evaluate_individual_indicators
     evaluate_individual_indicators, experiment_buy_sell_combinations
 )
@@ -28,6 +28,7 @@ from modules.multi_eval import save_multi_ticker_evaluation_to_db
 from modules.best_indicator import get_best_indicator
 from modules.strategy_utils import generate_combination_results
 from modules.analysis import save_date_filtered_trend_to_db
+from config import API_KEY
 
 # Jalankan di awal main.py
 import mysql.connector
@@ -46,11 +47,11 @@ st.markdown("""
     <h1 style='text-align: center;'>DASHBOARD TREND HARGA SAHAM</h1>
 """, unsafe_allow_html=True)
 st.markdown("""
-Dashboard ini digunakan untuk menganalisis dan memprediksi arah tren harga saham menggunakan berbagai indikator teknikal populer seperti Moving Average, MACD, Ichimoku Cloud, dan lainnya.
+Dashboard untuk menganalisis arah tren harga saham menggunakan indikator teknikal populer
 Dengan fitur analisis dan backtesting untuk:
 - Mengetahui sinyal buy, sell, atau hold.
-- Melihat performa strategi berdasarkan data historis.
-- Mengevaluasi efektivitas kombinasi indikator dengan menggunakan filter di sidebar untuk menyesuaikan analisis dengan preferensi Anda.
+- pairing sinyal buy den sell.
+- Mengevaluasi efektivitas kombinasi.
 """)
 
 # Load data
@@ -67,7 +68,7 @@ elif df_logs.empty:
 else:
     df_sorted = df_logs.reset_index(drop=True)
 
-st.markdown("#### Top Strategi Saham Berdasarkan Profit")
+st.markdown("#### Saham dengan Profit dan Win Rate Tertinggi ")
 
 # Setup slider
 total = len(df_sorted)
@@ -176,6 +177,7 @@ st.sidebar.markdown(f"**Interval terpilih:** {interval}")
 start_date = st.sidebar.date_input("Start Date", datetime(2024, 5, 31))
 end_date = st.sidebar.date_input("End Date", datetime(2025, 5, 31))
 money = st.sidebar.number_input("Modal Awal (Rp)", value=1_000_000, step=500_000)
+data_source = st.sidebar.radio("Sumber Data", ["Database", "Real-time API"])
 
 # Indikator yang digunakan
 indicators = {
@@ -217,16 +219,16 @@ with st.sidebar.expander("Setting Parameter Indikator"):
 
 # Tab Navigasi
 # tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab_panduan = st.tabs([
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab_panduan = st.tabs([
-    "Analisis",
-    "Analisis Tersimpan",
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "Analisis Saham",
+    "Hasil Analisis",
     "Backtesting Analisis",
     "Backtesting Profit",
-    "Semua Win Rate Strategi",
-    "Evaluasi Gabungan",
-    "Evaluasi Strategi Terbaik",
+    "History Win Rate",
+    "Evaluasi Gabungan Ticker",
+    "Evaluasi Strategi Terbaik"
     # "Win Rate Evaluasi Strategi",
-    "Panduan Dashboard"
+    # "Panduan Dashboard"
 ])
 # Tab 1 Analisis Saham: Menampilkan tren dan distribusi sinyal.
 with tab1:
@@ -234,18 +236,50 @@ with tab1:
     st.markdown("""
         Fitur ini menghitung indikator teknikal untuk menentukan sinyal akhir: **Buy**, **Sell**, atau **Hold**.
         - Sinyal ditentukan dengan mayoritas dari semua indikator yang dipilih.
-        - Filter sinyal di sidebar untuk menampilkan sinyal tertentu.
-        - Sinyal yang sering muncul berurutan mengindikasikan kekuatan tren.
     """)
     for ticker in tickers:
         st.markdown(f"### {ticker}")
-        data = get_data_from_db(ticker, interval)
+        
+        if data_source == "Database":
+            data = get_data_from_db(ticker, interval)
+        else:
+            from modules.realtime import fetch_realtime_data_marketstack
+            from config import API_KEY
+            data = fetch_realtime_data_marketstack(ticker, API_KEY)
+
         if not data.empty:
+            # Fix index datetime dan timezone
+            # Pastikan index adalah waktu
+            if not isinstance(data.index, pd.DatetimeIndex):
+                # 1. Coba dari kolom waktu
+                for time_col in ['Date', 'Datetime', 'date', 'datetime']:
+                    if time_col in data.columns:
+                        data[time_col] = pd.to_datetime(data[time_col])
+                        data.set_index(time_col, inplace=True)
+                        break
+
+            # 2. Jika masih gagal, coba konversi index itu sendiri
+            if not isinstance(data.index, pd.DatetimeIndex):
+                try:
+                    data.index = pd.to_datetime(data.index)
+                except Exception as e:
+                    st.error(f"Index data bukan waktu yang valid: {e}")
+                    st.stop()
+
+            # 3. Hilangkan timezone kalau ada
+            if data.index.tz is not None:
+                data.index = data.index.tz_convert(None)
+
+            if data.index.tz is not None:
+                data.index = data.index.tz_convert(None)
+
+            # Analisis
             data = compute_indicators(data, indicators, params)
             data['Final_Signal'] = compute_final_signal(data, indicators)
             data_in_range = data.loc[start_date:end_date]
+
             plot_indicators(data_in_range, indicators)
-            show_indicator_explanation(indicators)  
+            # show_indicator_explanation(indicators)
             display_analysis_table_with_summary(data_in_range, indicators, signal_filter)
             save_analysis_to_json_db(ticker, data_in_range, indicators)
 
@@ -268,7 +302,7 @@ with tab1:
         tanggal_label = f"Tren ({start_date} s.d. {end_date})"
 
         # Data dalam rentang waktu
-        data_in_range = data[(data.index >= pd.to_datetime(start_date)) & (data.index <= pd.to_datetime(end_date))]
+        data_in_range = data.loc[str(start_date):str(end_date)]
 
         # Indikator individual
         for indikator in ['Signal_MA', 'Signal_MACD', 'Signal_Ichimoku', 'Signal_SO', 'Signal_Volume']:
@@ -334,11 +368,9 @@ with tab1:
 
 # Tab 2 - Load Analisis Tersimpan
 with tab2:
-    st.subheader("Analisis Tersimpan")
+    st.subheader("Hasil Analisis")
     st.markdown("""
-        Fitur ini Untuk dapat melihat kembali hasil analisis terdahulu yang disimpan ke database.
-        - Fitur ini untuk membandingkan strategi antar waktu.
-        - Analisis ditampilkan sama seperti sebelumnya tanpa dihitung ulang.
+        Fitur ini Untuk dapat melihat kembali hasil analisis terdahulu yang di simpan ke database, hasil analisis ditampilkan sama seperti sebelumnya tanpa dihitung ulang.
         """,)
     for ticker in tickers:
         st.markdown(f"### {ticker}")
@@ -346,6 +378,9 @@ with tab2:
         if saved_titles:
             selected_title = st.selectbox("Pilih Judul Analisis", saved_titles)
             df_loaded = load_analysis_by_title(ticker, selected_title)
+            # Hitung ulang Final_Signal jika belum tersedia
+            if 'Final_Signal' not in df_loaded.columns:
+                df_loaded['Final_Signal'] = compute_final_signal(df_loaded, indicators)
             display_analysis_table_with_summary(df_loaded, indicators, signal_filter)
         else:
             st.info("Belum ada hasil analisis yang tersimpan untuk ticker ini.")
@@ -355,9 +390,10 @@ with tab3:
 
     st.subheader("Backtesting Analisis")
     st.markdown("""
-        Fitur ini membandingkan sinyal akhir (`Final_Signal`) dengan arah harga keesokan harinya.
-        - Win Rate dihitung dari jumlah sinyal benar (Buy/Sell sesuai arah harga) dibagi total sinyal.
-        - Evaluasi ini membantu mengukur keandalan analisis Anda.
+        Fitur ini mengevaluasi performa strategi berdasarkan pasangan sinyal Buy–Sell.
+        - Setiap sinyal Buy dipasangkan dengan sinyal Sell pertama setelahnya.
+        - Profit dihitung dari selisih harga beli dan harga jual pada setiap pasangan.
+        - Hasil evaluasi menunjukkan total keuntungan, jumlah pasangan, dan efektivitas strategi masuk–keluar pasar.
     """)
 
     for ticker in tickers:
@@ -396,7 +432,7 @@ with tab3:
             # plot_signal_pairs(df_bt, df_pairs)
             plot_signal_pairs(df_bt, df_pairs, show_lines=True)
 
-            st.subheader("Grafik Profit per Pasangan Sinyal")
+            st.subheader("Grafik Profit Pasangan Sinyal")
             fig_profit = go.Figure()
             fig_profit.add_trace(go.Bar(
                 x=[f"Pasangan {i+1}" for i in range(len(df_pairs))],
@@ -417,8 +453,7 @@ with tab3:
             st.markdown(
                 """
                 Tab ini menguji berbagai kombinasi antara urutan sinyal **Buy** ke-n
-                dengan beberapa sinyal **Sell** setelahnya. Hasil profit setiap
-                kombinasi ditampilkan pada tabel berikut.
+                dengan beberapa sinyal **Sell** setelahnya.
                 """
             )
             df_combo = experiment_buy_sell_combinations(df_bt, signal_series)
@@ -443,7 +478,7 @@ with tab3:
                 plot_signal_pairs(df_bt, df_combo, show_lines=False)
 
         st.markdown("---")
-        st.subheader("Rekomendasi Langkah Selanjutnya")
+        st.subheader("Rekomendasi Next Step")
         try:
             if not df_bt.empty and 'Final_Signal' in df_bt.columns:
                 next_step = generate_next_step_recommendation(df_bt, indicators)
@@ -451,8 +486,8 @@ with tab3:
                 **Ticker:** `{ticker}`  
                 **Tanggal terakhir data:** `{next_step['date']}`  
                 **Rekomendasi:** **{next_step['recommendation']}**  
-                **Keyakinan:** `{next_step['confidence']}`  
-                **Alasan Pendukung:**  
+                **Confidence:** `{next_step['confidence']}`  
+                **Alasan:**  
                 """)
                 for reason in next_step['reasons']:
                     st.write(f"- {reason}")
@@ -466,9 +501,8 @@ with tab4:
     st.subheader("Backtesting Profit")
     st.markdown(""" 
         Fitur ini mensimulasikan hasil jika strategi diterapkan dengan uang sungguhan ke data historis.
-        - Dihitung dengan modal awal, membeli saat sinyal Buy, menjual saat Sell.
+        - Dihitung dari modal awal saat sinyal Buy, menjual saat Sell.
         - Memberikan nilai akhir portofolio, profit nominal, dan profit persentase.
-        - Semakin positif hasil profit, strategi semakin optimal.
         """,)
     for ticker in tickers:
         st.markdown(f"### {ticker}")
@@ -499,11 +533,9 @@ with tab4:
             plot_winrate_history(ticker)
 
 with tab5:
-    st.subheader("Semua Riwayat Win Rate Strategi")
+    st.subheader("History Win Rate")
     st.markdown("""
         Menampilkkan rekapan seluruh strategi yang pernah diuji.
-        - Disusun berdasarkan win Rate tertinggi.
-        - Gunakan data ini untuk memilih strategi paling konsisten.
         """,)
     # from modules.evaluation_log import get_all_winrate_logs
     all_logs_df = get_all_winrate_logs()
@@ -521,7 +553,7 @@ with tab6:
     from modules.multi_eval import save_multi_ticker_evaluation_to_db
     st.subheader("Evaluasi Gabungan Saham")
     st.markdown("""
-    Fitur ini menghitung win rate dan total profit dari semua ticker yang dipilih menggunakan kombinasi indikator yang sedang aktif.
+    Fitur untuk menghitung win rate dan total profit dari semua ticker yang dipilih menggunakan kombinasi indikator yang sedang aktif.
     """)
 
     total_signals = 0
@@ -588,21 +620,19 @@ with tab6:
             st.warning("Tidak ada data valid untuk dianalisis.")
 
 with tab7:
-    st.subheader("Evaluasi Strategi Terbaik (Per Indikator & Kombinasi)")
+    st.subheader("Pencarian Strategi Terbaik")
     st.markdown(
         """
-        Fitur ini mengevaluasi dan membandingkan performa dari:
-        - Setiap indikator teknikal secara individual
-        - Kombinasi 2–5 indikator
-        - Strategi logika seperti All Agree, Final Signal, dll
-        Output berupa tabel & grafik win rate dan profit. Di bawah tabel
-        strategi, ditampilkan juga indikator tunggal dengan profit tertinggi.
+        Fitur ini mencari dan membandingkan performa dari:
+        - Setiap indikator teknikal secara individual dan kombinasi lebih dari 2 indikator
         """
     )
 
     for ticker in tickers:
         st.markdown(f"### {ticker}")
         df_eval = get_data_from_db(ticker, interval)
+        if isinstance(df_eval.index, pd.DatetimeIndex) and df_eval.index.tz is not None:
+            df_eval.index = df_eval.index.tz_convert(None)
         df_eval = df_eval.loc[start_date:end_date]
         if not df_eval.empty:
             df_result = evaluate_strategies_combined(
@@ -665,36 +695,36 @@ with tab7:
 #             # Hide dashed connectors for the experiment tab
 #             plot_signal_pairs(df_bt, df_combo, show_lines=False)
 
-with tab_panduan:
-    st.subheader("Panduan Penggunaan Dashboard")
-    st.markdown("""
-    Dashboard ini dirancang untuk membantu pengguna menganalisis dan mengevaluasi arah tren harga saham berdasarkan indikator teknikal.
+# with tab_panduan:
+#     st.subheader("Panduan Penggunaan Dashboard")
+#     st.markdown("""
+#     Dashboard ini dirancang untuk membantu pengguna menganalisis dan mengevaluasi arah tren harga saham berdasarkan indikator teknikal.
 
-    ### Tujuan
-    - Menentukan waktu terbaik untuk beli (Buy), jual (Sell), atau tahan (Hold)
-    - Membandingkan strategi berdasarkan **win rate** dan **profit historis**
-    - Menguji kombinasi indikator dan strategi logika
+#     ### Tujuan
+#     - Menentukan waktu terbaik untuk beli (Buy), jual (Sell), atau tahan (Hold)
+#     - Membandingkan strategi berdasarkan **win rate** dan **profit historis**
+#     - Menguji kombinasi indikator dan strategi logika
 
-    ### Penjelasan Fitur
-    - **Analisis Saham**: Menampilkan sinyal dari indikator teknikal dan sinyal gabungan (`Final Signal`) berdasarkan voting mayoritas.
-    - **Backtesting Analisis**: Mengukur win rate sinyal terhadap arah harga keesokan harinya.
-    - **Backtesting Profit**: Simulasi keuntungan jika strategi dijalankan dengan modal sungguhan.
-    - **Evaluasi Gabungan**: Menggabungkan hasil dari beberapa saham untuk melihat win rate dan total keuntungan.
-    - **Strategi Terbaik**: Menampilkan hasil evaluasi setiap indikator dan kombinasi strategi.
+#     ### Penjelasan Fitur
+#     - **Analisis Saham**: Menampilkan sinyal dari indikator teknikal dan sinyal gabungan (`Final Signal`) berdasarkan voting mayoritas.
+#     - **Backtesting Analisis**: Mengukur win rate sinyal terhadap arah harga keesokan harinya.
+#     - **Backtesting Profit**: Simulasi keuntungan jika strategi dijalankan dengan modal sungguhan.
+#     - **Evaluasi Gabungan**: Menggabungkan hasil dari beberapa saham untuk melihat win rate dan total keuntungan.
+#     - **Strategi Terbaik**: Menampilkan hasil evaluasi setiap indikator dan kombinasi strategi.
 
-    ### Cara Membaca Sinyal
-    - **Buy**: Disarankan untuk membeli karena sinyal teknikal menunjukkan potensi kenaikan harga.
-    - **Sell**: Disarankan menjual karena potensi harga turun.
-    - **Hold**: Tidak ada sinyal jelas, tunggu konfirmasi dari pasar.
+#     ### Cara Membaca Sinyal
+#     - **Buy**: Disarankan untuk membeli karena sinyal teknikal menunjukkan potensi kenaikan harga.
+#     - **Sell**: Disarankan menjual karena potensi harga turun.
+#     - **Hold**: Tidak ada sinyal jelas, tunggu konfirmasi dari pasar.
 
-    ### Tips Interpretasi
-    - Sinyal yang **muncul berurutan** cenderung lebih kuat (misal: Buy muncul 3 hari berturut-turut).
-    - Kombinasi beberapa indikator lebih stabil dibanding 1 indikator tunggal.
-    - Perhatikan **win rate** dan **profit** secara bersamaan untuk memilih strategi terbaik.
+#     ### Tips Interpretasi
+#     - Sinyal yang **muncul berurutan** cenderung lebih kuat (misal: Buy muncul 3 hari berturut-turut).
+#     - Kombinasi beberapa indikator lebih stabil dibanding 1 indikator tunggal.
+#     - Perhatikan **win rate** dan **profit** secara bersamaan untuk memilih strategi terbaik.
 
-    ### Tentang Parameter Indikator
-    - Anda bisa menyesuaikan parameter seperti MA period, MACD Fast/Slow, dll. di sidebar.
-    - Parameter default mengikuti literatur umum namun bisa diubah sesuai karakteristik saham.
+#     ### Tentang Parameter Indikator
+#     - Anda bisa menyesuaikan parameter seperti MA period, MACD Fast/Slow, dll. di sidebar.
+#     - Parameter default mengikuti literatur umum namun bisa diubah sesuai karakteristik saham.
 
-    """)
+#     """)
 

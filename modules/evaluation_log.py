@@ -55,7 +55,7 @@ def evaluate_strategy(ticker, df, indicators_dict, params_dict, interval, money,
     df_eval = compute_indicators(df.copy(), indicators_dict, params_dict)
     df_eval['Final_Signal'] = compute_final_signal(df_eval, indicators_dict)
     signal_series = apply_custom_strategy(df_eval, strategy_name)
-    return run_backtesting_profit(df_eval, money, signal_series, key_prefix=f"{ticker}_{strategy_name}", enable_download=False)
+    return run_backtesting_profit(df_eval, money, signal_series, key_prefix=f"{ticker}_{strategy_name}")
 
 # Evaluasi kombinasi indikator (2–5 indikator aktif)
 def evaluate_indicator_combinations(ticker, df, params, interval, money=1_000_000):

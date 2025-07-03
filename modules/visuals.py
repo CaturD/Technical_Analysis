@@ -70,12 +70,21 @@ def plot_indicators(data, indicators):
         ), row=1, col=1)
         trend_up = data['Senkou_span_A'] >= data['Senkou_span_B']
         segments = []
-        start = 0
-        for i in range(1, len(data)):
-            if trend_up.iloc[i] != trend_up.iloc[start]:
-                segments.append((start, i - 1, trend_up.iloc[start]))
-                start = i
-        segments.append((start, len(data) - 1, trend_up.iloc[start]))
+
+        if len(trend_up) > 1:
+            start = 0
+            for i in range(1, len(trend_up)):
+                try:
+                    if trend_up.iloc[i] != trend_up.iloc[start]:
+                        segments.append((start, i - 1, trend_up.iloc[start]))
+                        start = i
+                except IndexError:
+                    continue
+            if start < len(trend_up):
+                try:
+                    segments.append((start, len(data) - 1, trend_up.iloc[start]))
+                except IndexError:
+                    pass
 
         shown_up, shown_down = False, False
         for seg_start, seg_end, is_up in segments:

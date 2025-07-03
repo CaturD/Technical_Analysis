@@ -22,11 +22,6 @@ Aplikasi ini adalah dashboard interaktif berbasis **Streamlit** untuk melakukan 
 
 - **Pemanggilan Analisis Tersimpan** berdasarkan `title`
 
-- **Ekspor ke Excel**:
-
-  - Hasil backtesting (nilai portofolio & profit)
-  - Rekap sinyal analisis
-
 ---
 
 ## Struktur Folder
@@ -63,7 +58,7 @@ streamlit run main.py
 Pastikan semua library berikut sudah diinstal:
 
 ```bash
-pip install streamlit pandas mysql-connector-python sqlalchemy plotly xlsxwriter
+pip install streamlit pandas mysql-connector-python sqlalchemy plotly
 ```
 
 Tambahan opsional:
@@ -85,7 +80,6 @@ Tambahan opsional:
 
 Seluruh fitur dari aplikasi referensi (teman) telah diadopsi, ditambah dengan fitur-fitur baru:
 
-- Ekspor Excel otomatis
 - Modularisasi kode ke dalam folder `modules`
 - UI berbasis tab navigasi di Streamlit
 

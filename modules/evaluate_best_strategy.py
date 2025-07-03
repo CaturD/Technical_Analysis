@@ -27,7 +27,7 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
         signal_series = apply_custom_strategy(df_ind, f"{ind} Only")
         try:
             _, final_value, gain, gain_pct, winrate = run_backtesting_profit(
-                df_ind, money, signal_series, key_prefix=f"{ticker}_{ind}_single", enable_download=False)
+                df_ind, money, signal_series, key_prefix=f"{ticker}_{ind}_single")
             results.append({
                 "Indikator / Kombinasi": f"{ind} Only",
                 "Win Rate (%)": round(winrate * 100, 2),
@@ -47,7 +47,7 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
             try:
                 combo_key = f"{ticker}_{'_'.join(sorted(combo))}"
                 _, final_value, gain, gain_pct, winrate = run_backtesting_profit(
-                    df_combo, money, signal_series, key_prefix=combo_key, enable_download=False)
+                    df_combo, money, signal_series, key_prefix=combo_key)
                 results.append({
                     "Indikator / Kombinasi": f"Kombinasi: {', '.join(combo)}",
                     "Win Rate (%)": round(winrate * 100, 2),
@@ -68,7 +68,7 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
 
     # Tampilkan grafik jika data tersedia
     if 'Profit (%)' in df_result.columns and df_result['Profit (%)'].notna().any():
-        st.subheader("Grafik Profit per Indikator/Kombinasi")
+        st.subheader("Grafik Evaluasi Indikator Individu dan Kombinasi")
         clean_profit_pct = df_result['Profit (%)'].fillna(0)
         fig = go.Figure()
         fig.add_trace(go.Bar(

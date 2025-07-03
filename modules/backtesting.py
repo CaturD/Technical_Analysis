@@ -2,7 +2,6 @@ import pandas as pd
 import streamlit as st
 import mysql.connector
 from sqlalchemy import create_engine, text
-from io import BytesIO
 import json
 import logging
 from sklearn.metrics import accuracy_score
@@ -66,8 +65,8 @@ def fetch_backtesting_data(ticker, start_date, end_date):
         return pd.DataFrame()
 
 
-def run_backtesting_profit(df, money, signal_series, key_prefix="default", enable_download=True):
-    st.subheader("Simulasi Keuntungan Trading")
+def run_backtesting_profit(df, money, signal_series, key_prefix="default"):
+    st.subheader("Evaluasi Indikator Individu dan Kombinasi")
     if df.empty or signal_series.empty:
         st.warning("Data atau sinyal kosong.")
         return pd.DataFrame(), money, 0, 0, 0
@@ -123,68 +122,56 @@ def run_backtesting_profit(df, money, signal_series, key_prefix="default", enabl
     df_result = pd.DataFrame(history, columns=['Tanggal', 'Sinyal', 'Nilai Portofolio', 'Profit'])
     st.dataframe(df_result, use_container_width=True)
 
-    if enable_download:
-        buffer = BytesIO()
-        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            df_result.to_excel(writer, index=False, sheet_name='Backtesting')
-        st.download_button(
-            label="⬇ Unduh Hasil Backtesting (Excel)",
-            data=buffer.getvalue(),
-            file_name=f"hasil_backtesting_{key_prefix}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key=f"download_button_{key_prefix}_profit"
-        )
-
     winrate = accuracy_score(actuals, predictions)
     st.info(f"Win Rate sinyal: **{winrate * 100:.2f}%**")
 
     return df_result, final_value, gain, gain_pct, winrate
 
-def show_indicator_explanation(indicators):
-    st.markdown("""
-    ### Cara Membaca Indikator
-    """)
-    if indicators.get("MA"):
-        st.markdown("""
-        #### Moving Average (MA)
-        - **MA5**, **MA10**, dan **MA20** menunjukkan rata-rata pergerakan harga.
-        - **Buy**: MA5 memotong MA20 dari bawah (golden cross).
-        - **Sell**: MA5 memotong MA20 dari atas (death cross).
-        """)
-    if indicators.get("MACD"):
-        st.markdown("""
-        #### MACD
-        - Menampilkan arah dan kekuatan tren.
-        - **Buy**: MACD Line memotong Signal Line dari bawah.
-        - **Sell**: MACD Line memotong Signal Line dari atas.
-        """)
-    if indicators.get("Ichimoku"):
-        st.markdown("""
-        #### Ichimoku
-        - Gabungan garis Tenkan, Kijun, dan Cloud.
-        - **Buy**: Harga di atas cloud, Tenkan > Kijun.
-        - **Sell**: Harga di bawah cloud, Tenkan < Kijun.
-        """)
-    if indicators.get("SO"):
-        st.markdown("""
-        #### Stochastic Oscillator (SO)
-        - Menilai kondisi jenuh beli/jual.
-        - **Buy**: SlowK memotong SlowD dari bawah (<20).
-        - **Sell**: SlowK memotong SlowD dari atas (>80).
-        """)
-    if indicators.get("Volume"):
-        st.markdown("""
-        #### Volume
-        - Bandingkan volume saat ini dengan MA volume.
-        - **High Volume (Buy)** jika volume > rata-rata.
-        - **Low Volume (Sell)** jika volume < rata-rata.
-        """)
-    st.markdown("""
-    #### Final Signal
-    - Merupakan hasil voting mayoritas dari sinyal indikator aktif.
-    - **Buy** jika mayoritas indikator menunjukkan beli.
-    - **Sell** jika mayoritas indikator menunjukkan jual.
-    """)
+# def show_indicator_explanation(indicators):
+#     st.markdown("""
+#     ### Cara Membaca Indikator
+#     """)
+#     if indicators.get("MA"):
+#         st.markdown("""
+#         #### Moving Average (MA)
+#         - **MA5**, **MA10**, dan **MA20** menunjukkan rata-rata pergerakan harga.
+#         - **Buy**: MA5 memotong MA20 dari bawah (golden cross).
+#         - **Sell**: MA5 memotong MA20 dari atas (death cross).
+#         """)
+#     if indicators.get("MACD"):
+#         st.markdown("""
+#         #### MACD
+#         - Menampilkan arah dan kekuatan tren.
+#         - **Buy**: MACD Line memotong Signal Line dari bawah.
+#         - **Sell**: MACD Line memotong Signal Line dari atas.
+#         """)
+#     if indicators.get("Ichimoku"):
+#         st.markdown("""
+#         #### Ichimoku
+#         - Gabungan garis Tenkan, Kijun, dan Cloud.
+#         - **Buy**: Harga di atas cloud, Tenkan > Kijun.
+#         - **Sell**: Harga di bawah cloud, Tenkan < Kijun.
+#         """)
+#     if indicators.get("SO"):
+#         st.markdown("""
+#         #### Stochastic Oscillator (SO)
+#         - Menilai kondisi jenuh beli/jual.
+#         - **Buy**: SlowK memotong SlowD dari bawah (<20).
+#         - **Sell**: SlowK memotong SlowD dari atas (>80).
+#         """)
+#     if indicators.get("Volume"):
+#         st.markdown("""
+#         #### Volume
+#         - Bandingkan volume saat ini dengan MA volume.
+#         - **High Volume (Buy)** jika volume > rata-rata.
+#         - **Low Volume (Sell)** jika volume < rata-rata.
+#         """)
+#     st.markdown("""
+#     #### Final Signal
+#     - Merupakan hasil voting mayoritas dari sinyal indikator aktif.
+#     - **Buy** jika mayoritas indikator menunjukkan beli.
+#     - **Sell** jika mayoritas indikator menunjukkan jual.
+#     """)
 
 
 
@@ -288,22 +275,43 @@ def experiment_buy_sell_combinations(df, signal_series):
     """Generate profit results pairing each Buy with multiple subsequent Sells."""
     df = df.sort_index()
     signal_series = signal_series.sort_index()
-    buy_dates = [d for d in df.index if signal_series.loc[d] == 'Buy']
-    sell_dates = [d for d in df.index if signal_series.loc[d] == 'Sell']
+
+    buy_dates = []
+    sell_dates = []
+
+    for d in df.index:
+        val = signal_series.loc[d]
+        if isinstance(val, pd.Series):
+            if (val == 'Buy').any():
+                buy_dates.append(d)
+            if (val == 'Sell').any():
+                sell_dates.append(d)
+        else:
+            if val == 'Buy':
+                buy_dates.append(d)
+            if val == 'Sell':
+                sell_dates.append(d)
 
     combos = []
     for i, buy_date in enumerate(buy_dates, start=1):
         buy_price = df.loc[buy_date, 'Close']
+        if isinstance(buy_price, pd.Series):
+            buy_price = buy_price.iloc[0]
+
         for j, sell_date in enumerate([s for s in sell_dates if s > buy_date], start=1):
             sell_price = df.loc[sell_date, 'Close']
+            if isinstance(sell_price, pd.Series):
+                sell_price = sell_price.iloc[0]
+
             profit = sell_price - buy_price
             profit_pct = ((sell_price - buy_price) / buy_price) * 100
             hold_days = (sell_date - buy_date).days
+
             combos.append({
                 'Buy': i,
                 'Sell After Buy': j,
-                'Buy Date': buy_date.strftime('%Y-%m-%d'),
-                'Sell Date': sell_date.strftime('%Y-%m-%d'),
+                'Buy Date': buy_date.strftime('%Y-%m-%d %H:%M'),
+                'Sell Date': sell_date.strftime('%Y-%m-%d %H:%M'),
                 'Buy Price': round(buy_price, 2),
                 'Sell Price': round(sell_price, 2),
                 'Hold Days': hold_days,
@@ -326,7 +334,7 @@ def evaluate_individual_indicators(ticker, df, params, interval, money):
         df_ind['Final_Signal'] = compute_final_signal(df_ind, active_indicators)
         signal_series = apply_custom_strategy(df_ind, "Final Signal")
         try:
-            _, final_value, gain, gain_pct, winrate = run_backtesting_profit(df_ind, money, signal_series, key_prefix=f"{ticker}_{ind}_auto", enable_download=False)
+            _, final_value, gain, gain_pct, winrate = run_backtesting_profit(df_ind, money, signal_series, key_prefix=f"{ticker}_{ind}_auto")
             results.append({
                 'Indikator': ind,
                 'Win Rate': round(winrate * 100, 2),
