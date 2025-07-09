@@ -8,7 +8,6 @@ def fetch_realtime_data_marketstack(ticker, api_key):
         'access_key': api_key,
         'symbols': ticker
     }
-
     response = requests.get(url, params=params)
     if response.status_code != 200:
         return pd.DataFrame()

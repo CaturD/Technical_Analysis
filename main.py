@@ -177,7 +177,7 @@ st.sidebar.markdown(f"**Interval terpilih:** {interval}")
 start_date = st.sidebar.date_input("Start Date", datetime(2024, 5, 31))
 end_date = st.sidebar.date_input("End Date", datetime(2025, 5, 31))
 money = st.sidebar.number_input("Modal Awal (Rp)", value=1_000_000, step=500_000)
-data_source = st.sidebar.radio("Sumber Data", ["Database", "Real-time API"])
+data_source = st.sidebar.radio("Sumber Data", ["Database", "Real-time"])
 
 # Indikator yang digunakan
 indicators = {

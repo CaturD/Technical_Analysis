@@ -97,4 +97,24 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
     else:
         st.info("Tidak ada data 'Profit (%)' yang valid untuk ditampilkan dalam grafik.")
 
+    from modules.multi_eval import save_multi_ticker_evaluation_to_db
+
+    # Simpan ke database jika ada kombinasi terbaik
+    if not df_result.empty and 'Profit (%)' in df_result.columns:
+        try:
+            save_multi_ticker_evaluation_to_db(
+                tickers=[ticker],
+                interval=interval,
+                indicators_dict={ind: True for ind in ['MA', 'MACD', 'Ichimoku', 'SO', 'Volume']},
+                strategy='evaluate_strategies_combined',
+                start_date=df.index.min().date(),
+                end_date=df.index.max().date(),
+                total_winrate=df_result['Win Rate (%)'].mean(),
+                total_profit=df_result['Profit (%)'].sum(),
+                total_money=1000000,
+                final_money=1000000 * (1 + df_result['Profit (%)'].sum() / 100)
+            )
+        except Exception as e:
+            st.warning(f"Gagal menyimpan evaluasi gabungan: {e}")
+            
     return df_result
