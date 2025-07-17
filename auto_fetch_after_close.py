@@ -3,9 +3,8 @@ import json
 import time
 import logging
 from datetime import datetime
-from modules.database import save_stock_data_to_db  # pastikan fungsi ini tersedia di database.py
+from modules.database import save_stock_data_to_db
 
-# Konfigurasi logging
 LOG_FILE = "log_fetch_saham.log"
 logging.basicConfig(
     filename=LOG_FILE,
@@ -23,9 +22,8 @@ def fetch_after_market_close(ticker, interval='1d'):
         logging.info(f"Menunggu sampai jam pasar tutup selama {wait_sec} detik...")
         time.sleep(wait_sec + 60)
 
-    # Batasi period berdasarkan interval agar tidak error
     if interval in ['1m', '2m', '5m', '15m', '30m', '60m']:
-        period = '7d'  # yfinance batas maksimal interval menit
+        period = '7d'
     else:
         period = '5y'
 
@@ -52,9 +50,8 @@ def fetch_after_market_close(ticker, interval='1d'):
 
     save_stock_data_to_db(ticker, data_json, interval=interval)
 
-# Daftar ticker yang ingin diambil
 tickers = ["BBCA.JK", "BBRI.JK", "BMRI.JK", "AALI.JK", "TLKM.JK"]
-intervals = ["1d", "1wk", "1mo"]  # kamu bisa tambah '1m' jika nanti datanya tersedia
+intervals = ["1d", "1wk", "1mo"]
 
 for ticker in tickers:
     for interval in intervals:

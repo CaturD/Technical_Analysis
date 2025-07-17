@@ -1,6 +1,5 @@
 import argparse
 import pandas as pd
-
 from modules.database import get_data_from_db
 from modules.best_indicator import get_best_indicator
 
@@ -20,7 +19,6 @@ DEFAULT_PARAMS = {
     'shift': 26
 }
 
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Cari indikator tunggal terbaik untuk suatu saham"
@@ -32,14 +30,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--money", type=float, default=1_000_000, help="Modal awal")
     return parser.parse_args()
 
-
 def main() -> None:
     args = parse_args()
     df = get_data_from_db(args.ticker, args.interval)
     if df.empty:
         print("Data tidak ditemukan.")
         return
-
     if args.start:
         df = df[df.index >= pd.to_datetime(args.start)]
     if args.end:
@@ -48,11 +44,9 @@ def main() -> None:
     best, result_df = get_best_indicator(
         args.ticker, df, DEFAULT_PARAMS, args.interval, args.money
     )
-
     if result_df.empty:
         print("Evaluasi gagal.")
         return
-
     print(result_df)
     if best:
         metric = 'Keuntungan (%)' if 'Keuntungan (%)' in result_df.columns else 'Win Rate'
@@ -61,7 +55,5 @@ def main() -> None:
         )
     else:
         print("Tidak ada hasil terbaik yang dapat ditentukan.")
-
-
 if __name__ == "__main__":
     main()

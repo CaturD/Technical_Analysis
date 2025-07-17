@@ -69,22 +69,17 @@ def evaluate_indicator_combinations(ticker, df, params, interval, money=1_000_00
                 df_eval = compute_indicators(df.copy(), combo_dict, params)
                 df_eval['Final_Signal'] = compute_final_signal(df_eval, combo_dict)
                 signal_series = apply_custom_strategy(df_eval, "Final Signal")
-
-                # Pastikan semua sinyal tidak kosong atau hanya Hold
                 if signal_series.nunique() <= 1:
                     continue
-
                 _, final_value, gain, gain_pct, winrate = run_backtesting_profit(
                     df_eval, money, signal_series, key_prefix=f"{ticker}_{'_'.join(combo)}"
                 )
-
                 results.append({
                     'Kombinasi': ', '.join(combo),
                     'Win Rate': round(winrate * 100, 2),
                     'Keuntungan (Rp)': round(gain, 2),
                     'Keuntungan (%)': round(gain_pct, 2)
                 })
-
             except Exception as e:
                 results.append({
                     'Kombinasi': ', '.join(combo),
@@ -95,11 +90,9 @@ def evaluate_indicator_combinations(ticker, df, params, interval, money=1_000_00
                 })
 
     df_result = pd.DataFrame(results)
-
     for col in ['Kombinasi', 'Win Rate', 'Keuntungan (Rp)', 'Keuntungan (%)']:
         if col not in df_result.columns:
             df_result[col] = None
-
     return df_result.sort_values(by='Keuntungan (Rp)', ascending=False).reset_index(drop=True)
 
 def get_all_winrate_logs():
@@ -121,20 +114,16 @@ def get_top_strategies_by_profit(limit=10):
     try:
         conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
         cursor = conn.cursor()
-
-        # Pastikan tabel dan kolom baru tersedia
         from modules.backtesting import _ensure_backtesting_table
         _ensure_backtesting_table(cursor)
         conn.commit()
         cursor.close()
-
         cursor = conn.cursor()
         cursor.execute("SHOW COLUMNS FROM data_backtesting LIKE 'start_date'")
         has_start = cursor.fetchone() is not None
         cursor.execute("SHOW COLUMNS FROM data_backtesting LIKE 'end_date'")
         has_end = cursor.fetchone() is not None
         cursor.close()
-
         columns = ["ticker", "profit", "profit_percentage", "winrate"]
         if has_start:
             columns.append("start_date")
@@ -143,7 +132,6 @@ def get_top_strategies_by_profit(limit=10):
         columns.append("timestamp")
         query = f"SELECT {', '.join(columns)} FROM data_backtesting ORDER BY profit DESC"
         df = pd.read_sql(query, conn)
-        # Ambil hanya entri dengan profit terbesar untuk setiap ticker
         df = df.sort_values(by="profit", ascending=False).drop_duplicates("ticker")
         return df.head(limit)
     

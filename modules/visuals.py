@@ -206,7 +206,6 @@ def plot_signal_markers(df, signal_column='Final_Signal'):
 
     st.plotly_chart(fig, use_container_width=True)
 
-# def plot_signal_pairs(df, signal_pairs):
 def plot_signal_pairs(df, signal_pairs, show_lines=True):
     """Plot buy/sell signal pairs using candlesticks and optional connectors."""
     st.subheader("Visualisasi Pasangan Sinyal")
@@ -218,7 +217,6 @@ def plot_signal_pairs(df, signal_pairs, show_lines=True):
         row_heights=[0.7, 0.3]
     )
 
-    # fig.add_trace(go.Scatter(
     fig.add_trace(go.Candlestick(
         x=df.index,
         open=df['Open'],
@@ -238,10 +236,6 @@ def plot_signal_pairs(df, signal_pairs, show_lines=True):
             marker=dict(symbol='triangle-down', color='red', size=10),
             name=f"Sell {i+1}", showlegend=(i == 0)))
 
-        # fig.add_trace(go.Scatter(
-        #     x=[row['Buy Date'], row['Sell Date']],
-        #     y=[row['Buy Price'], row['Sell Price']],
-        #     mode='lines', line=dict(dash='dot', color='blue'), showlegend=False))
         if show_lines:
             fig.add_trace(go.Scatter(
                 x=[row['Buy Date'], row['Sell Date']],

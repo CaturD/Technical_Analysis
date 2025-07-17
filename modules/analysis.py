@@ -6,7 +6,6 @@ import json
 from datetime import datetime
 from sklearn.metrics import accuracy_score
 
-# Hitung sinyal akhir berdasarkan mayoritas indikator
 def compute_final_signal(data, indicators):
     def majority_vote(row):
         signals = []
@@ -21,7 +20,6 @@ def compute_final_signal(data, indicators):
         return 'Buy' if buy > sell else 'Sell' if sell > buy else 'Hold'
     return data.apply(majority_vote, axis=1)
 
-# Tampilkan tabel analisis dengan filter sinyal dan penomoran
 def display_analysis_table_with_summary(df, indicators, signal_filter):
     cols = []
     if indicators.get('MA'):
@@ -35,14 +33,11 @@ def display_analysis_table_with_summary(df, indicators, signal_filter):
     if indicators.get('Volume'):
         cols += ['Volume', 'Volume_MA20', 'Signal_Volume']
     
-    # Pastikan hanya kolom yang tersedia di df yang dipilih
     existing_cols = [col for col in cols if col in df.columns]
     
-    # Tambahkan kolom sinyal akhir
     if 'Final_Signal' in df.columns:
         existing_cols.append('Final_Signal')
 
-    # Filter jika pengguna memilih filter sinyal tertentu
     if signal_filter:
         df_filtered = df[df['Final_Signal'].isin(signal_filter)]
     else:
@@ -50,8 +45,6 @@ def display_analysis_table_with_summary(df, indicators, signal_filter):
 
     st.dataframe(df_filtered[existing_cols], use_container_width=True)
 
-
-# Simpan hasil analisis ke database (jika belum ada)
 def save_analysis_to_json_db(ticker, data, indicators):
     try:
         conn = mysql.connector.connect(host="localhost", user="root", password="", database="indonesia_stock")
@@ -70,10 +63,8 @@ def save_analysis_to_json_db(ticker, data, indicators):
                 if err.errno != errorcode.ER_DUP_FIELDNAME:
                     raise
         data = data.reset_index()
-        # Ambil kolom index pertama dan jadikan 'Date'
         time_col = data.columns[0]
         data.rename(columns={time_col: 'Date'}, inplace=True)
-        # Konversi ke string format tanggal
         data['Date'] = pd.to_datetime(data['Date']).dt.strftime('%Y-%m-%d')
 
         json_data = data.to_json(orient='records')
@@ -116,10 +107,9 @@ def load_analysis_by_title(ticker, title):
         )
         cursor = conn.cursor()
         cursor.execute("SELECT hasil_analisis FROM analisis_indikator WHERE ticker = %s AND title = %s", (ticker, title))
-        result = cursor.fetchone()  # ← ini penting, harus dieksekusi sebelum close
+        result = cursor.fetchone()
         if result:
             df = pd.DataFrame(json.loads(result[0]))
-            # Cari dan atur kolom waktu
             for time_col in ['Date', 'Datetime', 'date', 'datetime', 'timestamp']:
                 if time_col in df.columns:
                     df[time_col] = pd.to_datetime(df[time_col])
@@ -138,8 +128,7 @@ def load_analysis_by_title(ticker, title):
         try:
             if cursor: cursor.close()
             if conn: conn.close()
-        except: pass  # jika koneksi gagal dibuat
-
+        except: pass
 
 # Tampilkan jumlah sinyal per indikator
 def show_signal_recap(data, indicators, title='Rekapitulasi Sinyal'):
@@ -166,7 +155,7 @@ def evaluate_strategy_winrate(df):
     mask = df['Final_Signal'].isin(['Buy', 'Sell'])
     winrate = accuracy_score(df.loc[mask, 'Final_Signal'], df.loc[mask, 'Actual_Signal'])
     result = {
-        "winrate": winrate,  # ← sebelumnya 'winrate'
+        "winrate": winrate,
         "total_signals": len(df),
         "correct_predictions": (df['Final_Signal'] == df['Actual_Signal']).sum(),
         "signal_distribution": df['Final_Signal'].value_counts().to_dict()
@@ -179,7 +168,6 @@ def save_date_filtered_trend_to_db(ticker, indikator, trend, start_date, end_dat
             host="localhost", user="root", password="", database="indonesia_stock"
         )
         cursor = conn.cursor()
-
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS trend_filtered (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -191,7 +179,6 @@ def save_date_filtered_trend_to_db(ticker, indikator, trend, start_date, end_dat
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
-
         cursor.execute("""
             SELECT COUNT(*) FROM trend_filtered
             WHERE ticker=%s AND indikator=%s AND start_date=%s AND end_date=%s

@@ -34,7 +34,6 @@ def _ensure_backtesting_table(cursor):
     cursor.execute("SHOW COLUMNS FROM data_backtesting LIKE 'end_date'")
     if cursor.fetchone() is None:
         cursor.execute("ALTER TABLE data_backtesting ADD COLUMN end_date DATE")
-    # Commit changes to ensure the schema updates are saved
     try:
         cursor.connection.commit()
     except Exception:
@@ -127,56 +126,7 @@ def run_backtesting_profit(df, money, signal_series, key_prefix="default"):
 
     return df_result, final_value, gain, gain_pct, winrate
 
-# def show_indicator_explanation(indicators):
-#     st.markdown("""
-#     ### Cara Membaca Indikator
-#     """)
-#     if indicators.get("MA"):
-#         st.markdown("""
-#         #### Moving Average (MA)
-#         - **MA5**, **MA10**, dan **MA20** menunjukkan rata-rata pergerakan harga.
-#         - **Buy**: MA5 memotong MA20 dari bawah (golden cross).
-#         - **Sell**: MA5 memotong MA20 dari atas (death cross).
-#         """)
-#     if indicators.get("MACD"):
-#         st.markdown("""
-#         #### MACD
-#         - Menampilkan arah dan kekuatan tren.
-#         - **Buy**: MACD Line memotong Signal Line dari bawah.
-#         - **Sell**: MACD Line memotong Signal Line dari atas.
-#         """)
-#     if indicators.get("Ichimoku"):
-#         st.markdown("""
-#         #### Ichimoku
-#         - Gabungan garis Tenkan, Kijun, dan Cloud.
-#         - **Buy**: Harga di atas cloud, Tenkan > Kijun.
-#         - **Sell**: Harga di bawah cloud, Tenkan < Kijun.
-#         """)
-#     if indicators.get("SO"):
-#         st.markdown("""
-#         #### Stochastic Oscillator (SO)
-#         - Menilai kondisi jenuh beli/jual.
-#         - **Buy**: SlowK memotong SlowD dari bawah (<20).
-#         - **Sell**: SlowK memotong SlowD dari atas (>80).
-#         """)
-#     if indicators.get("Volume"):
-#         st.markdown("""
-#         #### Volume
-#         - Bandingkan volume saat ini dengan MA volume.
-#         - **High Volume (Buy)** jika volume > rata-rata.
-#         - **Low Volume (Sell)** jika volume < rata-rata.
-#         """)
-#     st.markdown("""
-#     #### Final Signal
-#     - Merupakan hasil voting mayoritas dari sinyal indikator aktif.
-#     - **Buy** jika mayoritas indikator menunjukkan beli.
-#     - **Sell** jika mayoritas indikator menunjukkan jual.
-#     """)
-
-
-
 # Simpan hasil backtesting ke database
-# def save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, winrate):
 def save_backtesting_to_db(ticker, money, final_value, gain, gain_pct, winrate,
                            start_date, end_date):
     try:
@@ -225,6 +175,7 @@ def plot_winrate_history(ticker):
         st.error(f"Gagal menampilkan grafik win rate: {e}")
 
 def evaluate_signal_pairs(df, signal_series):
+    """Evaluate buy/sell pairs and return detail DataFrame and total profit."""
     pairs = []
     holding = False
     buy_price = 0
@@ -268,8 +219,11 @@ def evaluate_signal_pairs(df, signal_series):
 
     df_pairs = pd.DataFrame(pairs)
     if df_pairs.empty:
-        return df_pairs
-    return df_pairs.sort_values(by='Profit', ascending=False).reset_index(drop=True)
+        return df_pairs, 0.0
+
+    df_pairs = df_pairs.sort_values(by='Profit', ascending=False).reset_index(drop=True)
+    total_profit_pct = df_pairs['Profit (%)'].sum()
+    return df_pairs, total_profit_pct
 
 def experiment_buy_sell_combinations(df, signal_series):
     """Generate profit results pairing each Buy with multiple subsequent Sells."""

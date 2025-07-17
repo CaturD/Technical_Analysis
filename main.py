@@ -406,12 +406,13 @@ with tab3:
         df_bt = compute_indicators(df_bt, indicators, params)
         df_bt['Final_Signal'] = compute_final_signal(df_bt, indicators)
         signal_series = df_bt['Final_Signal']
-        df_pairs = evaluate_signal_pairs(df_bt, signal_series)
+        df_pairs, total_profit_pct = evaluate_signal_pairs(df_bt, signal_series)
         if not df_pairs.empty and 'Profit (%)' in df_pairs.columns:
             num_profit = (df_pairs['Profit (%)'] > 0).sum()
             total = len(df_pairs)
             acc_pair = (num_profit / total) * 100
             st.metric("Win Rate Pasangan Sinyal", f"{acc_pair:.2f}%")
+            st.metric("Total Profit (%)", f"{total_profit_pct:.2f}%")
 
         if not df_pairs.empty and 'Hold Days' in df_pairs.columns:
             up_days = df_pairs[df_pairs['Trend'] == 'Uptrend']['Hold Days'].mean()

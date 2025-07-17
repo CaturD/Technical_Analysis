@@ -7,8 +7,6 @@ from modules.custom_strategies import apply_custom_strategy
 from modules.backtesting import run_backtesting_profit
 from itertools import combinations
 
-# Evaluasi semua strategi: individual, kombinasi, dan logika
-
 def evaluate_strategies_combined(ticker, df, params, interval, money):
     from modules.indicators import compute_indicators
     from modules.analysis import compute_final_signal
@@ -19,7 +17,6 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
     indikator_list = ['MA', 'MACD', 'Ichimoku', 'SO', 'Volume']
     results = []
 
-    # Evaluasi indikator satu per satu
     for ind in indikator_list:
         ind_dict = {key: (key == ind) for key in indikator_list}
         df_ind = compute_indicators(df.copy(), ind_dict, params)
@@ -37,7 +34,6 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
         except Exception as e:
             results.append({"Indikator / Kombinasi": f"{ind} Only", "Error": str(e)})
 
-    # Evaluasi kombinasi indikator (2–5)
     for r in [2, 3, 4, 5]:
         for combo in combinations(indikator_list, r):
             combo_dict = {key: key in combo for key in indikator_list}
@@ -57,7 +53,6 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
             except Exception as e:
                 results.append({"Indikator / Kombinasi": f"Kombinasi: {', '.join(combo)}", "Error": str(e)})
 
-    # Buat DataFrame hasil
     df_result = pd.DataFrame(results)
     if "Winrate (%)" in df_result.columns:
         df_result.rename(columns={"Winrate (%)": "Win Rate (%)"}, inplace=True)
@@ -86,7 +81,6 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
             margin=dict(l=20, r=20, t=40, b=40)
         )
         st.plotly_chart(fig, use_container_width=True)
-        # Tampilkan kombinasi terbaik berdasarkan profit
         if 'Profit (Rp)' in df_result.columns and df_result['Profit (Rp)'].notna().any():
             df_filtered = df_result[df_result['Indikator / Kombinasi'].str.startswith("Kombinasi")]
             if not df_filtered.empty:
@@ -98,8 +92,6 @@ def evaluate_strategies_combined(ticker, df, params, interval, money):
         st.info("Tidak ada data 'Profit (%)' yang valid untuk ditampilkan dalam grafik.")
 
     from modules.multi_eval import save_multi_ticker_evaluation_to_db
-
-    # Simpan ke database jika ada kombinasi terbaik
     if not df_result.empty and 'Profit (%)' in df_result.columns:
         try:
             save_multi_ticker_evaluation_to_db(
