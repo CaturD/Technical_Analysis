@@ -1,92 +1,66 @@
-# Dashboard Analisis & Backtesting Saham (Streamlit)
+# Dashboard Analisis & Backtesting Saham
 
-Aplikasi ini adalah dashboard interaktif berbasis **Streamlit** untuk melakukan **analisis teknikal** dan **simulasi backtesting** saham Indonesia. Data saham tersimpan dalam database MySQL dalam format JSON.
+Dashboard ini dibuat dengan **Streamlit** untuk menganalisis pergerakan saham Indonesia sekaligus melakukan simulasi backtesting sederhana. Seluruh data harga tersimpan di database MySQL dalam bentuk JSON sehingga mudah dipanggil ulang.
 
 ---
 
 ## Fitur Utama
 
-- **Analisis Saham** dengan indikator teknikal:
-
-  - Ichimoku Kinko Hyo
-  - Moving Average (MA)
-  - MACD
-  - Stochastic Oscillator (SO)
-  - Volume
-
-- **Backtesting Analisis** → Menampilkan jumlah sinyal Buy/Sell/Hold
-
-- **Backtesting Profit** → Simulasi portofolio berdasarkan sinyal final
-
-- **Rekapitulasi Sinyal** → Total sinyal per indikator
-
-- **Pemanggilan Analisis Tersimpan** berdasarkan `title`
+- **Analisis Saham** menggunakan beberapa indikator teknikal (Ichimoku, MA, MACD, Stochastic, dan Volume)
+- **Backtesting Analisis** untuk menampilkan jumlah sinyal _Buy/Sell/Hold_
+- **Backtesting Profit** guna mensimulasikan portofolio berdasarkan sinyal akhir
+- **Rekapitulasi Sinyal** per indikator
+- Memuat kembali analisis tersimpan berdasarkan `title`
 
 ---
 
-## Struktur Folder
+## Instalasi
 
-```
-project_root/
-│
-├── main.py                        # Aplikasi utama Streamlit
-├── modules/
-│   ├── database.py               # Fungsi pengambilan data dari MySQL
-│   ├── indicators.py             # Perhitungan semua indikator teknikal
-│   ├── visuals.py                # Grafik harga dan indikator dengan Plotly
-│   ├── analysis.py               # Simpan, tampil, dan muat ulang hasil analisis
-│   └── backtesting.py            # Fungsi backtesting dan penyimpanan hasil
-```
+1. Pastikan Python 3.9 atau lebih baru terpasang.
+2. Install dependensi melalui:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Aktifkan MySQL dan buat database bernama `indonesia_stock` (tabel akan dibuat otomatis saat aplikasi dijalankan).
+4. Jika ingin mengambil data real-time, isi `API_KEY` pada `config.py` dengan key milik Anda.
+
+## Pengambilan Data
+
+- **Data historis** dapat diunduh lewat `fetch_historical_data.py`.
+- **Data real-time** tersedia melalui `fetch_realtime_marketstack.py` atau `fetch_realtime_alpha.py`.
+- Script `auto_fetch_after_close.py` dapat dijadwalkan agar data harian otomatis tersimpan setelah pasar tutup.
 
 ---
 
-## Cara Menjalankan
-
-1. Pastikan MySQL aktif dan tersedia database bernama `indonesia_stock`.
-2. Jalankan perintah berikut:
+## Menjalankan Dashboard
 
 ```bash
 streamlit run main.py
 ```
 
-3. Buka browser dan akses `http://localhost:8501`
+Buka `http://localhost:8501` di browser untuk mengakses antarmuka.
 
 ---
 
-## Ketergantungan (Dependencies)
+## Struktur Proyek
 
-Pastikan semua library berikut sudah diinstal:
-
-```bash
-pip install streamlit pandas mysql-connector-python sqlalchemy plotly
+```
+project_root/
+├── main.py                       # Aplikasi Streamlit
+├── modules/
+│   ├── analysis.py               # Logika analisis dan penyimpanan ke DB
+│   ├── backtesting.py            # Fungsi backtesting
+│   ├── database.py               # Koneksi MySQL
+│   ├── indicators.py             # Perhitungan indikator teknikal
+│   └── ...
+├── fetch_historical_data.py      # Mengambil data historis
+└── ...
 ```
 
-Tambahan opsional:
-
-- `ta-lib` jika kamu ingin pakai library eksternal untuk indikator teknikal
-
 ---
 
-## Catatan Teknis
+## Catatan
 
-- Data harga saham disimpan dalam tabel `stock_data` dalam kolom JSON
-- Hasil analisis disimpan di tabel `analisis_indikator`
-- Hasil backtesting disimpan di tabel `data_backtesting`
-- Semua tabel dibuat otomatis jika belum tersedia
-
----
-
-## Status
-
-Seluruh fitur dari aplikasi referensi (teman) telah diadopsi, ditambah dengan fitur-fitur baru:
-
-- Modularisasi kode ke dalam folder `modules`
-- UI berbasis tab navigasi di Streamlit
-
----
-
-## requirements.txt
-
-pip install -r requirements.txt
-
-untuk menginstall semua dependensi proyek ini secara otomatis.
+- Data harga disimpan pada tabel `stock_data` (atau variasinya) dalam database.
+- Hasil analisis berada di tabel `analisis_indikator` dan backtesting di `data_backtesting`.
+- Contoh `API_KEY` pada repo hanyalah placeholder, ganti sesuai milik Anda.

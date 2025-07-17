@@ -4,3 +4,6 @@ mysql-connector-python
 sqlalchemy
 plotly
 scikit-learn
+requests
+yfinance
+TA-Lib
